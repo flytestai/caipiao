@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+.env
+
+# Databases (regenerable via sync_service)
+*.db
+*.db-journal
+*.sqlite
+*.sqlite-journal
+
+# Logs
+*.log
+
+# Backtest diagnostic artifacts
+backend/_bt_raw_diag.json
+backend/_bt_result.json
+backend/_bt_payload.json
+
+# Node.js / Frontend build
+node_modules/
+dist/
+.vite/
+
+# IDE / Editor
+.vscode/
+.idea/
+.cursor/
+.windsurf/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temp / Misc
+tmp-chrome/
+*.tmp
+*.bak
+frontend-blank.png
+
+# TypeScript build info
+*.tsbuildinfo

@@ -1,0 +1,15 @@
+import json, sys
+d = json.load(open('_bt_result.json', 'r', encoding='utf-8'))
+print('recent_issues       :', d.get('recent_issues'))
+print('total_issues        :', d['total_issues'])
+print('total_generated     :', d['total_generated_schemes'])
+print('won_schemes         :', d['won_schemes'])
+print('overall_win_rate    :', d['overall_win_rate'])
+print('issue_hit_rate      :', d['issue_hit_rate'])
+print('total_prize_amount  :', d['total_prize_amount'])
+print('total_cost          :', d['total_cost'])
+print('net_profit          :', d['net_profit'])
+print()
+print('--- prize_level_breakdown ---')
+for x in d['prize_level_breakdown']:
+    print(f"{x['level']}: wins={x['wins']} scheme_rate={x['scheme_rate']} issue_hits={x['issue_hits']} issue_rate={x['issue_rate']} amount={x['total_prize_amount']}")
