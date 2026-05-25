@@ -239,6 +239,10 @@ class SavedSchemeCreateRequest(BaseModel):
     is_additional: bool = False
 
 
+class SavedSchemeBatchCreateRequest(BaseModel):
+    items: list[SavedSchemeCreateRequest] = Field(..., min_length=1, max_length=50)
+
+
 class SavedSchemeManualCreateRequest(BaseModel):
     target_issue: str = Field(..., description="\u76ee\u6807\u671f\u53f7")
     front_numbers: list[int] = Field(..., min_length=5, max_length=5)
@@ -411,7 +415,8 @@ class SavedSchemeListResponse(BaseModel):
 class BacktestRequest(BaseModel):
     recent_issues: int = Field(30, ge=5)
     scheme_count: int = Field(3, ge=1)
-    strategy_mode: Literal["multi_cover", "single_hit"] = "multi_cover"
+    multiple: int = Field(1, ge=1, le=99)
+    strategy_mode: Literal["multi_cover", "single_hit", "smart_balance"] = "multi_cover"
     ticket_mode: Literal["basic", "additional"] = "basic"
     ai_replay_mode: Literal["local_only", "external_rerank"] = "local_only"
     compare_modes: bool = False
@@ -636,7 +641,7 @@ class BacktestTuningSummary(BaseModel):
 
 
 class BacktestModeSummary(BaseModel):
-    strategy_mode: Literal["multi_cover", "single_hit"]
+    strategy_mode: Literal["multi_cover", "single_hit", "smart_balance"]
     total_issues: int
     total_generated_schemes: int
     won_schemes: int
@@ -670,7 +675,7 @@ class BacktestThresholdScanItem(BaseModel):
 
 
 class BacktestIssueModeComparison(BaseModel):
-    strategy_mode: Literal["multi_cover", "single_hit"]
+    strategy_mode: Literal["multi_cover", "single_hit", "smart_balance"]
     won_count: int
     best_prize_level: str | None = None
     best_prize_amount: float | None = None
@@ -692,7 +697,7 @@ class BacktestResponse(BaseModel):
     skipped_issues: int = 0
     confidence_threshold: float = 0.0
     scheme_count: int
-    strategy_mode: Literal["multi_cover", "single_hit"] = "multi_cover"
+    strategy_mode: Literal["multi_cover", "single_hit", "smart_balance"] = "multi_cover"
     ticket_mode: Literal["basic", "additional"] = "basic"
     ai_replay_mode: Literal["local_only", "external_rerank"] = "local_only"
     count_policy: str | None = None
@@ -732,7 +737,7 @@ class BacktestJobResponse(BaseModel):
     processed_issues: int = 0
     total_issues: int = 0
     scheme_count: int = 0
-    strategy_mode: Literal["multi_cover", "single_hit"] = "multi_cover"
+    strategy_mode: Literal["multi_cover", "single_hit", "smart_balance"] = "multi_cover"
     ticket_mode: Literal["basic", "additional"] = "basic"
     ai_replay_mode: Literal["local_only", "external_rerank"] = "local_only"
     created_at: datetime

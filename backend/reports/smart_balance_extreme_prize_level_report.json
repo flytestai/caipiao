@@ -1,0 +1,5102 @@
+{
+  "overall": {
+    "generated_at": "2026-05-25T20:39:18",
+    "issue_range": [
+      "07031",
+      "26056"
+    ],
+    "date_range": [
+      "2007-08-08",
+      "2026-05-23"
+    ],
+    "total_issues": 2844,
+    "scheme_count_per_issue": 3,
+    "total_generated_schemes": 8532,
+    "ticket_mode": "basic",
+    "unit_price": 2.0,
+    "total_cost": 17064.0,
+    "won_schemes": 600,
+    "issue_hit_count": 541,
+    "overall_win_rate": 0.070323,
+    "issue_hit_rate": 0.190225,
+    "total_prize_amount": 34461.0,
+    "net_profit": 17397.0,
+    "roi": 1.019515,
+    "cost_per_issue": 6.0,
+    "prize_per_issue": 12.1171,
+    "net_per_issue": 6.1171,
+    "profile_counts": {
+      "default_multi": 1303,
+      "lowtier_multi": 496,
+      "candidate_multi": 330,
+      "single_hit_default": 522,
+      "front_back_multi": 193
+    },
+    "selection_mode_counts": {
+      "warmup": 420,
+      "attack": 1573,
+      "guard": 851
+    },
+    "exact_profile_issue_count": 2322,
+    "single_hit_allocated_issue_count": 522,
+    "breakdown_amount_check": {
+      "level_breakdown_amount": 34461.0,
+      "selector_total_prize_amount": 34461.0,
+      "delta": 0.0
+    },
+    "data_quality_note": "multi_cover profiles use exact prize_level_hits; single_hit_default was saved by mode comparison with won_count, best_prize_level and total amount only, so its wins and amount are allocated to the best prize level. Overall totals are unchanged."
+  },
+  "prize_level_breakdown": [
+    {
+      "level": "一等奖",
+      "wins": 0,
+      "issue_hits": 0,
+      "scheme_rate": 0.0,
+      "issue_rate": 0.0,
+      "total_prize_amount": 0.0,
+      "average_prize_amount": 0.0,
+      "share_of_total_prize": 0.0,
+      "net_if_only_this_level_against_total_cost": -17064.0,
+      "exact_wins": 0,
+      "single_hit_allocated_wins": 0,
+      "single_hit_allocated_amount": 0.0
+    },
+    {
+      "level": "二等奖",
+      "wins": 0,
+      "issue_hits": 0,
+      "scheme_rate": 0.0,
+      "issue_rate": 0.0,
+      "total_prize_amount": 0.0,
+      "average_prize_amount": 0.0,
+      "share_of_total_prize": 0.0,
+      "net_if_only_this_level_against_total_cost": -17064.0,
+      "exact_wins": 0,
+      "single_hit_allocated_wins": 0,
+      "single_hit_allocated_amount": 0.0
+    },
+    {
+      "level": "三等奖",
+      "wins": 1,
+      "issue_hits": 1,
+      "scheme_rate": 0.000117,
+      "issue_rate": 0.000352,
+      "total_prize_amount": 3215.0,
+      "average_prize_amount": 3215.0,
+      "share_of_total_prize": 0.093294,
+      "net_if_only_this_level_against_total_cost": -13849.0,
+      "exact_wins": 1,
+      "single_hit_allocated_wins": 0,
+      "single_hit_allocated_amount": 0.0
+    },
+    {
+      "level": "四等奖",
+      "wins": 1,
+      "issue_hits": 1,
+      "scheme_rate": 0.000117,
+      "issue_rate": 0.000352,
+      "total_prize_amount": 3000.0,
+      "average_prize_amount": 3000.0,
+      "share_of_total_prize": 0.087055,
+      "net_if_only_this_level_against_total_cost": -14064.0,
+      "exact_wins": 1,
+      "single_hit_allocated_wins": 0,
+      "single_hit_allocated_amount": 0.0
+    },
+    {
+      "level": "五等奖",
+      "wins": 5,
+      "issue_hits": 5,
+      "scheme_rate": 0.000586,
+      "issue_rate": 0.001758,
+      "total_prize_amount": 1810.0,
+      "average_prize_amount": 362.0,
+      "share_of_total_prize": 0.052523,
+      "net_if_only_this_level_against_total_cost": -15254.0,
+      "exact_wins": 4,
+      "single_hit_allocated_wins": 1,
+      "single_hit_allocated_amount": 10.0
+    },
+    {
+      "level": "六等奖",
+      "wins": 56,
+      "issue_hits": 49,
+      "scheme_rate": 0.006564,
+      "issue_rate": 0.017229,
+      "total_prize_amount": 6970.0,
+      "average_prize_amount": 124.46,
+      "share_of_total_prize": 0.202258,
+      "net_if_only_this_level_against_total_cost": -10094.0,
+      "exact_wins": 34,
+      "single_hit_allocated_wins": 22,
+      "single_hit_allocated_amount": 3305.0
+    },
+    {
+      "level": "七等奖",
+      "wins": 537,
+      "issue_hits": 494,
+      "scheme_rate": 0.06294,
+      "issue_rate": 0.173699,
+      "total_prize_amount": 19466.0,
+      "average_prize_amount": 36.25,
+      "share_of_total_prize": 0.56487,
+      "net_if_only_this_level_against_total_cost": 2402.0,
+      "exact_wins": 438,
+      "single_hit_allocated_wins": 99,
+      "single_hit_allocated_amount": 4436.0
+    }
+  ],
+  "selected_level_rows": [
+    {
+      "issue": "07034",
+      "draw_date": "2007-08-15",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "07044",
+      "draw_date": "2007-09-08",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "07066",
+      "draw_date": "2007-10-29",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "07067",
+      "draw_date": "2007-10-31",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "07068",
+      "draw_date": "2007-11-03",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "07073",
+      "draw_date": "2007-11-14",
+      "profile": "default_multi",
+      "level": "六等奖",
+      "wins": 1,
+      "amount": 200.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "07075",
+      "draw_date": "2007-11-19",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "07077",
+      "draw_date": "2007-11-24",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "07080",
+      "draw_date": "2007-12-01",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "07081",
+      "draw_date": "2007-12-03",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "07087",
+      "draw_date": "2007-12-17",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "08008",
+      "draw_date": "2008-01-19",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "08017",
+      "draw_date": "2008-02-16",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "08023",
+      "draw_date": "2008-03-01",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "08026",
+      "draw_date": "2008-03-08",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "08028",
+      "draw_date": "2008-03-12",
+      "profile": "default_multi",
+      "level": "六等奖",
+      "wins": 1,
+      "amount": 200.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "08028",
+      "draw_date": "2008-03-12",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "08032",
+      "draw_date": "2008-03-22",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "08033",
+      "draw_date": "2008-03-24",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "08036",
+      "draw_date": "2008-03-31",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "08040",
+      "draw_date": "2008-04-09",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "08058",
+      "draw_date": "2008-05-21",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "08061",
+      "draw_date": "2008-05-28",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "08067",
+      "draw_date": "2008-06-11",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "08069",
+      "draw_date": "2008-06-16",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "08076",
+      "draw_date": "2008-07-02",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "08081",
+      "draw_date": "2008-07-14",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "08085",
+      "draw_date": "2008-07-23",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "08086",
+      "draw_date": "2008-07-26",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "08088",
+      "draw_date": "2008-07-30",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "08092",
+      "draw_date": "2008-08-09",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "08107",
+      "draw_date": "2008-09-13",
+      "profile": "default_multi",
+      "level": "六等奖",
+      "wins": 1,
+      "amount": 200.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "08109",
+      "draw_date": "2008-09-17",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "08110",
+      "draw_date": "2008-09-20",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "08120",
+      "draw_date": "2008-10-13",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "08122",
+      "draw_date": "2008-10-18",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "08128",
+      "draw_date": "2008-11-01",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "08129",
+      "draw_date": "2008-11-03",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "08130",
+      "draw_date": "2008-11-05",
+      "profile": "default_multi",
+      "level": "六等奖",
+      "wins": 1,
+      "amount": 200.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "08131",
+      "draw_date": "2008-11-08",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 2,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "08137",
+      "draw_date": "2008-11-22",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "08139",
+      "draw_date": "2008-11-26",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "08144",
+      "draw_date": "2008-12-08",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "08146",
+      "draw_date": "2008-12-13",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "08149",
+      "draw_date": "2008-12-20",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "08151",
+      "draw_date": "2008-12-24",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "08153",
+      "draw_date": "2008-12-29",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "09005",
+      "draw_date": "2009-01-12",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "09012",
+      "draw_date": "2009-02-04",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "09016",
+      "draw_date": "2009-02-14",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 2,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "09026",
+      "draw_date": "2009-03-09",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "09032",
+      "draw_date": "2009-03-23",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "09034",
+      "draw_date": "2009-03-28",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "09036",
+      "draw_date": "2009-04-01",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "09044",
+      "draw_date": "2009-04-20",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "09047",
+      "draw_date": "2009-04-27",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "09051",
+      "draw_date": "2009-05-06",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "09052",
+      "draw_date": "2009-05-09",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "09054",
+      "draw_date": "2009-05-13",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "09055",
+      "draw_date": "2009-05-16",
+      "profile": "default_multi",
+      "level": "六等奖",
+      "wins": 1,
+      "amount": 200.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "09057",
+      "draw_date": "2009-05-20",
+      "profile": "default_multi",
+      "level": "三等奖",
+      "wins": 1,
+      "amount": 3215.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "09057",
+      "draw_date": "2009-05-20",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "09087",
+      "draw_date": "2009-07-29",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "09088",
+      "draw_date": "2009-08-01",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "09089",
+      "draw_date": "2009-08-03",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "09097",
+      "draw_date": "2009-08-22",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "09101",
+      "draw_date": "2009-08-31",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "09110",
+      "draw_date": "2009-09-21",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "09123",
+      "draw_date": "2009-10-21",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "09126",
+      "draw_date": "2009-10-28",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 2,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "09135",
+      "draw_date": "2009-11-18",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "09151",
+      "draw_date": "2009-12-26",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "10002",
+      "draw_date": "2010-01-04",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "10004",
+      "draw_date": "2010-01-09",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "10007",
+      "draw_date": "2010-01-16",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "10010",
+      "draw_date": "2010-01-23",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "10011",
+      "draw_date": "2010-01-25",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "10017",
+      "draw_date": "2010-02-08",
+      "profile": "default_multi",
+      "level": "六等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "10017",
+      "draw_date": "2010-02-08",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "10021",
+      "draw_date": "2010-02-24",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "10027",
+      "draw_date": "2010-03-10",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "10035",
+      "draw_date": "2010-03-29",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "10040",
+      "draw_date": "2010-04-10",
+      "profile": "default_multi",
+      "level": "六等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "10043",
+      "draw_date": "2010-04-17",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "10052",
+      "draw_date": "2010-05-08",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "10062",
+      "draw_date": "2010-05-31",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "10065",
+      "draw_date": "2010-06-07",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "10078",
+      "draw_date": "2010-07-07",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "10080",
+      "draw_date": "2010-07-12",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "10082",
+      "draw_date": "2010-07-17",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "10089",
+      "draw_date": "2010-08-02",
+      "profile": "default_multi",
+      "level": "六等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "10089",
+      "draw_date": "2010-08-02",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "10102",
+      "draw_date": "2010-09-01",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "10106",
+      "draw_date": "2010-09-11",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "10129",
+      "draw_date": "2010-11-03",
+      "profile": "default_multi",
+      "level": "六等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "10130",
+      "draw_date": "2010-11-06",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "10136",
+      "draw_date": "2010-11-20",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "10137",
+      "draw_date": "2010-11-22",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "10138",
+      "draw_date": "2010-11-24",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "10140",
+      "draw_date": "2010-11-29",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "10144",
+      "draw_date": "2010-12-08",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "10146",
+      "draw_date": "2010-12-13",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 2,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "11004",
+      "draw_date": "2011-01-08",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "11009",
+      "draw_date": "2011-01-19",
+      "profile": "default_multi",
+      "level": "六等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "11022",
+      "draw_date": "2011-02-26",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "11032",
+      "draw_date": "2011-03-21",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "11038",
+      "draw_date": "2011-04-04",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "11039",
+      "draw_date": "2011-04-06",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 2,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "11040",
+      "draw_date": "2011-04-09",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "11050",
+      "draw_date": "2011-05-02",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "11065",
+      "draw_date": "2011-06-06",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "11073",
+      "draw_date": "2011-06-25",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "11079",
+      "draw_date": "2011-07-09",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "11081",
+      "draw_date": "2011-07-13",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "11084",
+      "draw_date": "2011-07-20",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "11088",
+      "draw_date": "2011-07-30",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "11094",
+      "draw_date": "2011-08-13",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "11096",
+      "draw_date": "2011-08-17",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "11100",
+      "draw_date": "2011-08-27",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "11114",
+      "draw_date": "2011-09-28",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "11116",
+      "draw_date": "2011-10-03",
+      "profile": "default_multi",
+      "level": "六等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "11118",
+      "draw_date": "2011-10-08",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "11122",
+      "draw_date": "2011-10-17",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "11124",
+      "draw_date": "2011-10-22",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 2,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "11130",
+      "draw_date": "2011-11-05",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "11133",
+      "draw_date": "2011-11-12",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "11134",
+      "draw_date": "2011-11-14",
+      "profile": "single_hit_default",
+      "level": "六等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "11144",
+      "draw_date": "2011-12-07",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "11152",
+      "draw_date": "2011-12-26",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "12009",
+      "draw_date": "2012-01-21",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "12018",
+      "draw_date": "2012-02-18",
+      "profile": "candidate_multi",
+      "level": "六等奖",
+      "wins": 2,
+      "amount": 200.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "12022",
+      "draw_date": "2012-02-27",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "12032",
+      "draw_date": "2012-03-21",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "12033",
+      "draw_date": "2012-03-24",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "12037",
+      "draw_date": "2012-04-02",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 2,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "12039",
+      "draw_date": "2012-04-07",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "12042",
+      "draw_date": "2012-04-14",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "12046",
+      "draw_date": "2012-04-23",
+      "profile": "candidate_multi",
+      "level": "五等奖",
+      "wins": 1,
+      "amount": 600.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "12057",
+      "draw_date": "2012-05-19",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "12058",
+      "draw_date": "2012-05-21",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "12059",
+      "draw_date": "2012-05-23",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "12069",
+      "draw_date": "2012-06-16",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 2,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "12084",
+      "draw_date": "2012-07-21",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "12086",
+      "draw_date": "2012-07-25",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "12094",
+      "draw_date": "2012-08-13",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "12095",
+      "draw_date": "2012-08-15",
+      "profile": "single_hit_default",
+      "level": "六等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "12099",
+      "draw_date": "2012-08-25",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "12100",
+      "draw_date": "2012-08-27",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "12103",
+      "draw_date": "2012-09-03",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "12107",
+      "draw_date": "2012-09-12",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "12128",
+      "draw_date": "2012-10-31",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "12129",
+      "draw_date": "2012-11-03",
+      "profile": "single_hit_default",
+      "level": "六等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "12136",
+      "draw_date": "2012-11-19",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "12144",
+      "draw_date": "2012-12-08",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "12145",
+      "draw_date": "2012-12-10",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "12152",
+      "draw_date": "2012-12-26",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "12153",
+      "draw_date": "2012-12-29",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "13009",
+      "draw_date": "2013-01-21",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "13016",
+      "draw_date": "2013-02-06",
+      "profile": "lowtier_multi",
+      "level": "六等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "13018",
+      "draw_date": "2013-02-18",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "13022",
+      "draw_date": "2013-02-27",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "13023",
+      "draw_date": "2013-03-02",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "13027",
+      "draw_date": "2013-03-11",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "13028",
+      "draw_date": "2013-03-13",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "13035",
+      "draw_date": "2013-03-30",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "13038",
+      "draw_date": "2013-04-06",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 2,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "13052",
+      "draw_date": "2013-05-08",
+      "profile": "front_back_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "13054",
+      "draw_date": "2013-05-13",
+      "profile": "front_back_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "13059",
+      "draw_date": "2013-05-25",
+      "profile": "front_back_multi",
+      "level": "五等奖",
+      "wins": 1,
+      "amount": 600.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "13059",
+      "draw_date": "2013-05-25",
+      "profile": "front_back_multi",
+      "level": "七等奖",
+      "wins": 2,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "13064",
+      "draw_date": "2013-06-05",
+      "profile": "front_back_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "13065",
+      "draw_date": "2013-06-08",
+      "profile": "front_back_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "13071",
+      "draw_date": "2013-06-22",
+      "profile": "front_back_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "13075",
+      "draw_date": "2013-07-01",
+      "profile": "front_back_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "13077",
+      "draw_date": "2013-07-06",
+      "profile": "front_back_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "13078",
+      "draw_date": "2013-07-08",
+      "profile": "front_back_multi",
+      "level": "七等奖",
+      "wins": 2,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "13095",
+      "draw_date": "2013-08-17",
+      "profile": "front_back_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "13105",
+      "draw_date": "2013-09-09",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "13108",
+      "draw_date": "2013-09-16",
+      "profile": "default_multi",
+      "level": "六等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "13111",
+      "draw_date": "2013-09-23",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "13112",
+      "draw_date": "2013-09-25",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "13117",
+      "draw_date": "2013-10-07",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "13118",
+      "draw_date": "2013-10-09",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "13120",
+      "draw_date": "2013-10-14",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "13123",
+      "draw_date": "2013-10-21",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "13124",
+      "draw_date": "2013-10-23",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "13129",
+      "draw_date": "2013-11-04",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "13130",
+      "draw_date": "2013-11-06",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "13132",
+      "draw_date": "2013-11-11",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "13138",
+      "draw_date": "2013-11-25",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "13139",
+      "draw_date": "2013-11-27",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "13143",
+      "draw_date": "2013-12-07",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "13151",
+      "draw_date": "2013-12-25",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "14001",
+      "draw_date": "2014-01-01",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "14009",
+      "draw_date": "2014-01-20",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "14011",
+      "draw_date": "2014-01-25",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "14016",
+      "draw_date": "2014-02-12",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "14021",
+      "draw_date": "2014-02-24",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "14054",
+      "draw_date": "2014-05-12",
+      "profile": "lowtier_multi",
+      "level": "六等奖",
+      "wins": 1,
+      "amount": 5.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "14054",
+      "draw_date": "2014-05-12",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "14063",
+      "draw_date": "2014-06-02",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "14064",
+      "draw_date": "2014-06-04",
+      "profile": "front_back_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "14065",
+      "draw_date": "2014-06-07",
+      "profile": "front_back_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "14068",
+      "draw_date": "2014-06-14",
+      "profile": "front_back_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "14071",
+      "draw_date": "2014-06-21",
+      "profile": "front_back_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "14080",
+      "draw_date": "2014-07-12",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "14082",
+      "draw_date": "2014-07-16",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 2,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "14083",
+      "draw_date": "2014-07-19",
+      "profile": "front_back_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "14086",
+      "draw_date": "2014-07-26",
+      "profile": "front_back_multi",
+      "level": "七等奖",
+      "wins": 2,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "14096",
+      "draw_date": "2014-08-18",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "14100",
+      "draw_date": "2014-08-27",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "14107",
+      "draw_date": "2014-09-13",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "14113",
+      "draw_date": "2014-09-27",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "14126",
+      "draw_date": "2014-10-27",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "14127",
+      "draw_date": "2014-10-29",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "14139",
+      "draw_date": "2014-11-26",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "14145",
+      "draw_date": "2014-12-10",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "14154",
+      "draw_date": "2014-12-31",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "15003",
+      "draw_date": "2015-01-07",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "15008",
+      "draw_date": "2015-01-19",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "15012",
+      "draw_date": "2015-01-28",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "15016",
+      "draw_date": "2015-02-07",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "15018",
+      "draw_date": "2015-02-11",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "15021",
+      "draw_date": "2015-02-25",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "15025",
+      "draw_date": "2015-03-07",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "15027",
+      "draw_date": "2015-03-11",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "15036",
+      "draw_date": "2015-04-01",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "15037",
+      "draw_date": "2015-04-04",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "15041",
+      "draw_date": "2015-04-13",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "15044",
+      "draw_date": "2015-04-20",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "15059",
+      "draw_date": "2015-05-25",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "15061",
+      "draw_date": "2015-05-30",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "15067",
+      "draw_date": "2015-06-13",
+      "profile": "candidate_multi",
+      "level": "六等奖",
+      "wins": 1,
+      "amount": 5.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "15076",
+      "draw_date": "2015-07-04",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "15092",
+      "draw_date": "2015-08-10",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "15093",
+      "draw_date": "2015-08-12",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "15097",
+      "draw_date": "2015-08-22",
+      "profile": "single_hit_default",
+      "level": "五等奖",
+      "wins": 1,
+      "amount": 10.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "15099",
+      "draw_date": "2015-08-26",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "15101",
+      "draw_date": "2015-08-31",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "15104",
+      "draw_date": "2015-09-07",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "15108",
+      "draw_date": "2015-09-16",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "15111",
+      "draw_date": "2015-09-23",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "15112",
+      "draw_date": "2015-09-26",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "15115",
+      "draw_date": "2015-10-03",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 2,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "15127",
+      "draw_date": "2015-10-31",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "15128",
+      "draw_date": "2015-11-02",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "15138",
+      "draw_date": "2015-11-25",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "15147",
+      "draw_date": "2015-12-16",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "15148",
+      "draw_date": "2015-12-19",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "15151",
+      "draw_date": "2015-12-26",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "16002",
+      "draw_date": "2016-01-04",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "16004",
+      "draw_date": "2016-01-09",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "16006",
+      "draw_date": "2016-01-13",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "16011",
+      "draw_date": "2016-01-25",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "16017",
+      "draw_date": "2016-02-15",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "16020",
+      "draw_date": "2016-02-22",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "16041",
+      "draw_date": "2016-04-11",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "16051",
+      "draw_date": "2016-05-04",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "16063",
+      "draw_date": "2016-06-01",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "16065",
+      "draw_date": "2016-06-06",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "16066",
+      "draw_date": "2016-06-08",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "16067",
+      "draw_date": "2016-06-11",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "16068",
+      "draw_date": "2016-06-13",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "16069",
+      "draw_date": "2016-06-15",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "16071",
+      "draw_date": "2016-06-20",
+      "profile": "default_multi",
+      "level": "六等奖",
+      "wins": 1,
+      "amount": 5.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "16073",
+      "draw_date": "2016-06-25",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "16080",
+      "draw_date": "2016-07-11",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "16081",
+      "draw_date": "2016-07-13",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "16090",
+      "draw_date": "2016-08-03",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "16097",
+      "draw_date": "2016-08-20",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "16101",
+      "draw_date": "2016-08-29",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "16102",
+      "draw_date": "2016-08-31",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 2,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "16109",
+      "draw_date": "2016-09-17",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "16112",
+      "draw_date": "2016-09-24",
+      "profile": "default_multi",
+      "level": "六等奖",
+      "wins": 1,
+      "amount": 5.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "16113",
+      "draw_date": "2016-09-26",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "16115",
+      "draw_date": "2016-10-01",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "16119",
+      "draw_date": "2016-10-10",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "16123",
+      "draw_date": "2016-10-19",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "16125",
+      "draw_date": "2016-10-24",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "16131",
+      "draw_date": "2016-11-07",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "16132",
+      "draw_date": "2016-11-09",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "16136",
+      "draw_date": "2016-11-19",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 2,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "16141",
+      "draw_date": "2016-11-30",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "16144",
+      "draw_date": "2016-12-07",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "16151",
+      "draw_date": "2016-12-24",
+      "profile": "default_multi",
+      "level": "六等奖",
+      "wins": 1,
+      "amount": 5.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "16151",
+      "draw_date": "2016-12-24",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "16153",
+      "draw_date": "2016-12-28",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "17003",
+      "draw_date": "2017-01-07",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 2,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "17004",
+      "draw_date": "2017-01-09",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "17017",
+      "draw_date": "2017-02-15",
+      "profile": "default_multi",
+      "level": "六等奖",
+      "wins": 1,
+      "amount": 5.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "17018",
+      "draw_date": "2017-02-18",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "17025",
+      "draw_date": "2017-03-06",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "17026",
+      "draw_date": "2017-03-08",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "17035",
+      "draw_date": "2017-03-29",
+      "profile": "lowtier_multi",
+      "level": "六等奖",
+      "wins": 1,
+      "amount": 5.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "17041",
+      "draw_date": "2017-04-12",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "17045",
+      "draw_date": "2017-04-22",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "17065",
+      "draw_date": "2017-06-07",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "17068",
+      "draw_date": "2017-06-14",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "17069",
+      "draw_date": "2017-06-17",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "17076",
+      "draw_date": "2017-07-03",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "17089",
+      "draw_date": "2017-08-02",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "17091",
+      "draw_date": "2017-08-07",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "17095",
+      "draw_date": "2017-08-16",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "17096",
+      "draw_date": "2017-08-19",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "17112",
+      "draw_date": "2017-09-25",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "17115",
+      "draw_date": "2017-10-02",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "17117",
+      "draw_date": "2017-10-07",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "17119",
+      "draw_date": "2017-10-11",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "17120",
+      "draw_date": "2017-10-14",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "17124",
+      "draw_date": "2017-10-23",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "17138",
+      "draw_date": "2017-11-25",
+      "profile": "default_multi",
+      "level": "六等奖",
+      "wins": 1,
+      "amount": 5.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "17144",
+      "draw_date": "2017-12-09",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "17151",
+      "draw_date": "2017-12-25",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "17152",
+      "draw_date": "2017-12-27",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "18001",
+      "draw_date": "2018-01-01",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "18004",
+      "draw_date": "2018-01-08",
+      "profile": "default_multi",
+      "level": "六等奖",
+      "wins": 1,
+      "amount": 5.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "18017",
+      "draw_date": "2018-02-07",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "18022",
+      "draw_date": "2018-02-26",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 2,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "18035",
+      "draw_date": "2018-03-28",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "18038",
+      "draw_date": "2018-04-04",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "18040",
+      "draw_date": "2018-04-09",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "18042",
+      "draw_date": "2018-04-14",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 2,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "18044",
+      "draw_date": "2018-04-18",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "18054",
+      "draw_date": "2018-05-12",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "18057",
+      "draw_date": "2018-05-19",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "18058",
+      "draw_date": "2018-05-21",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "18060",
+      "draw_date": "2018-05-26",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "18062",
+      "draw_date": "2018-05-30",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "18068",
+      "draw_date": "2018-06-13",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "18069",
+      "draw_date": "2018-06-16",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "18070",
+      "draw_date": "2018-06-18",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "18085",
+      "draw_date": "2018-07-23",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "18098",
+      "draw_date": "2018-08-22",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "18100",
+      "draw_date": "2018-08-27",
+      "profile": "single_hit_default",
+      "level": "六等奖",
+      "wins": 1,
+      "amount": 5.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "18101",
+      "draw_date": "2018-08-29",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "18108",
+      "draw_date": "2018-09-15",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "18109",
+      "draw_date": "2018-09-17",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "18117",
+      "draw_date": "2018-10-06",
+      "profile": "default_multi",
+      "level": "六等奖",
+      "wins": 1,
+      "amount": 5.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "18131",
+      "draw_date": "2018-11-07",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "18139",
+      "draw_date": "2018-11-26",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "18146",
+      "draw_date": "2018-12-12",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "18150",
+      "draw_date": "2018-12-22",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "18151",
+      "draw_date": "2018-12-24",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "19015",
+      "draw_date": "2019-02-11",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 0.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "19019",
+      "draw_date": "2019-02-20",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "19020",
+      "draw_date": "2019-02-23",
+      "profile": "default_multi",
+      "level": "六等奖",
+      "wins": 1,
+      "amount": 200.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "19022",
+      "draw_date": "2019-02-27",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "19024",
+      "draw_date": "2019-03-04",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "19027",
+      "draw_date": "2019-03-11",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "19032",
+      "draw_date": "2019-03-23",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "19034",
+      "draw_date": "2019-03-27",
+      "profile": "candidate_multi",
+      "level": "六等奖",
+      "wins": 1,
+      "amount": 200.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "19036",
+      "draw_date": "2019-04-01",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "19038",
+      "draw_date": "2019-04-06",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "19039",
+      "draw_date": "2019-04-08",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "19042",
+      "draw_date": "2019-04-15",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "19043",
+      "draw_date": "2019-04-17",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "19047",
+      "draw_date": "2019-04-27",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "19049",
+      "draw_date": "2019-05-01",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "19053",
+      "draw_date": "2019-05-11",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 2,
+      "amount": 200.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "19061",
+      "draw_date": "2019-05-29",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "19064",
+      "draw_date": "2019-06-05",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "19067",
+      "draw_date": "2019-06-12",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "19068",
+      "draw_date": "2019-06-15",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "19071",
+      "draw_date": "2019-06-22",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "19074",
+      "draw_date": "2019-06-29",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "19090",
+      "draw_date": "2019-08-05",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "19106",
+      "draw_date": "2019-09-11",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "19114",
+      "draw_date": "2019-09-30",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "19115",
+      "draw_date": "2019-10-09",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "19116",
+      "draw_date": "2019-10-12",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "19123",
+      "draw_date": "2019-10-28",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 2,
+      "amount": 200.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "19124",
+      "draw_date": "2019-10-30",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "19134",
+      "draw_date": "2019-11-23",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "19135",
+      "draw_date": "2019-11-25",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "19146",
+      "draw_date": "2019-12-21",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "20003",
+      "draw_date": "2020-01-06",
+      "profile": "default_multi",
+      "level": "六等奖",
+      "wins": 1,
+      "amount": 200.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "20009",
+      "draw_date": "2020-01-20",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "20010",
+      "draw_date": "2020-03-14",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "20013",
+      "draw_date": "2020-03-21",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "20015",
+      "draw_date": "2020-03-25",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "20030",
+      "draw_date": "2020-04-29",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "20037",
+      "draw_date": "2020-05-16",
+      "profile": "front_back_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "20041",
+      "draw_date": "2020-05-25",
+      "profile": "front_back_multi",
+      "level": "六等奖",
+      "wins": 1,
+      "amount": 200.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "20041",
+      "draw_date": "2020-05-25",
+      "profile": "front_back_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "20055",
+      "draw_date": "2020-06-27",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "20063",
+      "draw_date": "2020-07-15",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "20072",
+      "draw_date": "2020-08-05",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "20073",
+      "draw_date": "2020-08-08",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "20076",
+      "draw_date": "2020-08-15",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "20079",
+      "draw_date": "2020-08-22",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "20085",
+      "draw_date": "2020-09-05",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "20089",
+      "draw_date": "2020-09-14",
+      "profile": "single_hit_default",
+      "level": "六等奖",
+      "wins": 1,
+      "amount": 200.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "20094",
+      "draw_date": "2020-09-26",
+      "profile": "single_hit_default",
+      "level": "六等奖",
+      "wins": 1,
+      "amount": 200.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "20112",
+      "draw_date": "2020-11-09",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "20118",
+      "draw_date": "2020-11-23",
+      "profile": "single_hit_default",
+      "level": "六等奖",
+      "wins": 1,
+      "amount": 200.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "20133",
+      "draw_date": "2020-12-28",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "21004",
+      "draw_date": "2021-01-09",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "21008",
+      "draw_date": "2021-01-18",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "21014",
+      "draw_date": "2021-02-01",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 2,
+      "amount": 200.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "21023",
+      "draw_date": "2021-03-03",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "21026",
+      "draw_date": "2021-03-10",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "21034",
+      "draw_date": "2021-03-29",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "21039",
+      "draw_date": "2021-04-10",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "21049",
+      "draw_date": "2021-05-03",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "21059",
+      "draw_date": "2021-05-26",
+      "profile": "single_hit_default",
+      "level": "六等奖",
+      "wins": 2,
+      "amount": 300.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "21060",
+      "draw_date": "2021-05-29",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "21061",
+      "draw_date": "2021-05-31",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "21074",
+      "draw_date": "2021-06-30",
+      "profile": "default_multi",
+      "level": "六等奖",
+      "wins": 1,
+      "amount": 200.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "21080",
+      "draw_date": "2021-07-14",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "21090",
+      "draw_date": "2021-08-07",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "21093",
+      "draw_date": "2021-08-14",
+      "profile": "single_hit_default",
+      "level": "六等奖",
+      "wins": 1,
+      "amount": 200.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "21106",
+      "draw_date": "2021-09-13",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "21109",
+      "draw_date": "2021-09-20",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "21110",
+      "draw_date": "2021-09-22",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "21112",
+      "draw_date": "2021-09-27",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "21116",
+      "draw_date": "2021-10-11",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "21118",
+      "draw_date": "2021-10-16",
+      "profile": "default_multi",
+      "level": "六等奖",
+      "wins": 1,
+      "amount": 200.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "21119",
+      "draw_date": "2021-10-18",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "21127",
+      "draw_date": "2021-11-06",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "21128",
+      "draw_date": "2021-11-08",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "21148",
+      "draw_date": "2021-12-25",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "21149",
+      "draw_date": "2021-12-27",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "22034",
+      "draw_date": "2022-03-30",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "22035",
+      "draw_date": "2022-04-02",
+      "profile": "single_hit_default",
+      "level": "六等奖",
+      "wins": 3,
+      "amount": 400.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "22041",
+      "draw_date": "2022-04-16",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "22053",
+      "draw_date": "2022-05-14",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "22057",
+      "draw_date": "2022-05-23",
+      "profile": "single_hit_default",
+      "level": "六等奖",
+      "wins": 1,
+      "amount": 200.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "22059",
+      "draw_date": "2022-05-28",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "22065",
+      "draw_date": "2022-06-11",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 2,
+      "amount": 200.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "22067",
+      "draw_date": "2022-06-15",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "22071",
+      "draw_date": "2022-06-25",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "22080",
+      "draw_date": "2022-07-16",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "22084",
+      "draw_date": "2022-07-25",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "22085",
+      "draw_date": "2022-07-27",
+      "profile": "lowtier_multi",
+      "level": "五等奖",
+      "wins": 1,
+      "amount": 300.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "22090",
+      "draw_date": "2022-08-08",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "22095",
+      "draw_date": "2022-08-20",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "22102",
+      "draw_date": "2022-09-05",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "22104",
+      "draw_date": "2022-09-10",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "22115",
+      "draw_date": "2022-10-10",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "22118",
+      "draw_date": "2022-10-17",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "22123",
+      "draw_date": "2022-10-29",
+      "profile": "front_back_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "22130",
+      "draw_date": "2022-11-14",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "22131",
+      "draw_date": "2022-11-16",
+      "profile": "single_hit_default",
+      "level": "六等奖",
+      "wins": 1,
+      "amount": 200.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "22134",
+      "draw_date": "2022-11-23",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "22141",
+      "draw_date": "2022-12-10",
+      "profile": "front_back_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "22145",
+      "draw_date": "2022-12-19",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "22147",
+      "draw_date": "2022-12-24",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "22148",
+      "draw_date": "2022-12-26",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "22150",
+      "draw_date": "2022-12-31",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "23005",
+      "draw_date": "2023-01-11",
+      "profile": "single_hit_default",
+      "level": "六等奖",
+      "wins": 1,
+      "amount": 200.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "23014",
+      "draw_date": "2023-02-11",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "23035",
+      "draw_date": "2023-04-01",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "23041",
+      "draw_date": "2023-04-15",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "23042",
+      "draw_date": "2023-04-17",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "23053",
+      "draw_date": "2023-05-13",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "23060",
+      "draw_date": "2023-05-29",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "23072",
+      "draw_date": "2023-06-26",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "23076",
+      "draw_date": "2023-07-05",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "23077",
+      "draw_date": "2023-07-08",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "23082",
+      "draw_date": "2023-07-19",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "23092",
+      "draw_date": "2023-08-12",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "23093",
+      "draw_date": "2023-08-14",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "23096",
+      "draw_date": "2023-08-21",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "23097",
+      "draw_date": "2023-08-23",
+      "profile": "candidate_multi",
+      "level": "六等奖",
+      "wins": 1,
+      "amount": 200.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "23111",
+      "draw_date": "2023-09-25",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "23116",
+      "draw_date": "2023-10-11",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 2,
+      "amount": 200.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "23117",
+      "draw_date": "2023-10-14",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 2,
+      "amount": 200.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "23123",
+      "draw_date": "2023-10-28",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "23129",
+      "draw_date": "2023-11-11",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "23135",
+      "draw_date": "2023-11-25",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "23139",
+      "draw_date": "2023-12-04",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "23143",
+      "draw_date": "2023-12-13",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 2,
+      "amount": 200.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "23149",
+      "draw_date": "2023-12-27",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "24002",
+      "draw_date": "2024-01-03",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "24016",
+      "draw_date": "2024-02-05",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "24021",
+      "draw_date": "2024-02-26",
+      "profile": "lowtier_multi",
+      "level": "四等奖",
+      "wins": 1,
+      "amount": 3000.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "24031",
+      "draw_date": "2024-03-20",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "24036",
+      "draw_date": "2024-04-01",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "24037",
+      "draw_date": "2024-04-03",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 2,
+      "amount": 200.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "24043",
+      "draw_date": "2024-04-17",
+      "profile": "lowtier_multi",
+      "level": "六等奖",
+      "wins": 1,
+      "amount": 200.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "24045",
+      "draw_date": "2024-04-22",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "24054",
+      "draw_date": "2024-05-13",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 2,
+      "amount": 200.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "24055",
+      "draw_date": "2024-05-15",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "24062",
+      "draw_date": "2024-06-01",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "24077",
+      "draw_date": "2024-07-06",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "24080",
+      "draw_date": "2024-07-13",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "24084",
+      "draw_date": "2024-07-22",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "24093",
+      "draw_date": "2024-08-12",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "24097",
+      "draw_date": "2024-08-21",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "24098",
+      "draw_date": "2024-08-24",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "24105",
+      "draw_date": "2024-09-09",
+      "profile": "front_back_multi",
+      "level": "七等奖",
+      "wins": 2,
+      "amount": 200.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "24113",
+      "draw_date": "2024-09-28",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 2,
+      "amount": 200.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "24114",
+      "draw_date": "2024-09-30",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "24122",
+      "draw_date": "2024-10-21",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "24123",
+      "draw_date": "2024-10-23",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 2,
+      "amount": 200.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "24126",
+      "draw_date": "2024-10-30",
+      "profile": "default_multi",
+      "level": "七等奖",
+      "wins": 2,
+      "amount": 200.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "24135",
+      "draw_date": "2024-11-20",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "24140",
+      "draw_date": "2024-12-02",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "24141",
+      "draw_date": "2024-12-04",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "24149",
+      "draw_date": "2024-12-23",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "24151",
+      "draw_date": "2024-12-28",
+      "profile": "single_hit_default",
+      "level": "六等奖",
+      "wins": 3,
+      "amount": 400.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "24152",
+      "draw_date": "2024-12-30",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 2,
+      "amount": 200.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "25003",
+      "draw_date": "2025-01-06",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "25004",
+      "draw_date": "2025-01-08",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 2,
+      "amount": 200.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "25013",
+      "draw_date": "2025-02-10",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "25019",
+      "draw_date": "2025-02-24",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "25021",
+      "draw_date": "2025-03-01",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "25029",
+      "draw_date": "2025-03-19",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "25033",
+      "draw_date": "2025-03-29",
+      "profile": "front_back_multi",
+      "level": "七等奖",
+      "wins": 2,
+      "amount": 200.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "25037",
+      "draw_date": "2025-04-07",
+      "profile": "front_back_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "25046",
+      "draw_date": "2025-04-28",
+      "profile": "single_hit_default",
+      "level": "六等奖",
+      "wins": 1,
+      "amount": 200.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "25051",
+      "draw_date": "2025-05-10",
+      "profile": "front_back_multi",
+      "level": "七等奖",
+      "wins": 2,
+      "amount": 200.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "25053",
+      "draw_date": "2025-05-14",
+      "profile": "front_back_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "25055",
+      "draw_date": "2025-05-19",
+      "profile": "front_back_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "25061",
+      "draw_date": "2025-06-02",
+      "profile": "front_back_multi",
+      "level": "五等奖",
+      "wins": 1,
+      "amount": 300.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "25061",
+      "draw_date": "2025-06-02",
+      "profile": "front_back_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "25073",
+      "draw_date": "2025-06-30",
+      "profile": "front_back_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "25076",
+      "draw_date": "2025-07-07",
+      "profile": "front_back_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "25078",
+      "draw_date": "2025-07-12",
+      "profile": "front_back_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "25079",
+      "draw_date": "2025-07-14",
+      "profile": "front_back_multi",
+      "level": "七等奖",
+      "wins": 2,
+      "amount": 200.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "25080",
+      "draw_date": "2025-07-16",
+      "profile": "front_back_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "25087",
+      "draw_date": "2025-08-02",
+      "profile": "front_back_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "25088",
+      "draw_date": "2025-08-04",
+      "profile": "front_back_multi",
+      "level": "七等奖",
+      "wins": 2,
+      "amount": 200.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "25105",
+      "draw_date": "2025-09-13",
+      "profile": "front_back_multi",
+      "level": "七等奖",
+      "wins": 3,
+      "amount": 300.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "25116",
+      "draw_date": "2025-10-13",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "25121",
+      "draw_date": "2025-10-25",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "25122",
+      "draw_date": "2025-10-27",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "25124",
+      "draw_date": "2025-11-01",
+      "profile": "single_hit_default",
+      "level": "六等奖",
+      "wins": 2,
+      "amount": 300.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "25131",
+      "draw_date": "2025-11-17",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "25134",
+      "draw_date": "2025-11-24",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "25136",
+      "draw_date": "2025-11-29",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "25139",
+      "draw_date": "2025-12-06",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "25144",
+      "draw_date": "2025-12-17",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "25147",
+      "draw_date": "2025-12-24",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "26003",
+      "draw_date": "2026-01-07",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 2,
+      "amount": 200.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "26007",
+      "draw_date": "2026-01-17",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "26010",
+      "draw_date": "2026-01-24",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 2,
+      "amount": 200.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "26013",
+      "draw_date": "2026-01-31",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 100.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "26024",
+      "draw_date": "2026-03-09",
+      "profile": "lowtier_multi",
+      "level": "六等奖",
+      "wins": 1,
+      "amount": 15.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "26025",
+      "draw_date": "2026-03-11",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 5.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "26026",
+      "draw_date": "2026-03-14",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 5.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "26034",
+      "draw_date": "2026-04-01",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 5.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "26035",
+      "draw_date": "2026-04-04",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 5.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "26038",
+      "draw_date": "2026-04-11",
+      "profile": "lowtier_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 5.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "26040",
+      "draw_date": "2026-04-15",
+      "profile": "candidate_multi",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 5.0,
+      "basis": "exact"
+    },
+    {
+      "issue": "26042",
+      "draw_date": "2026-04-20",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 7.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "26051",
+      "draw_date": "2026-05-11",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 2,
+      "amount": 14.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "26052",
+      "draw_date": "2026-05-13",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 5.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "26054",
+      "draw_date": "2026-05-18",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 5.0,
+      "basis": "single_hit_best_level_allocated"
+    },
+    {
+      "issue": "26055",
+      "draw_date": "2026-05-20",
+      "profile": "single_hit_default",
+      "level": "七等奖",
+      "wins": 1,
+      "amount": 5.0,
+      "basis": "single_hit_best_level_allocated"
+    }
+  ],
+  "unknown_level_rows": []
+}

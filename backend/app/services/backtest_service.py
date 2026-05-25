@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections import deque
+from collections import Counter, deque
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date
 import json
@@ -92,6 +92,23 @@ BACKTEST_PARALLEL_MIN_ISSUES = 24
 BACKTEST_LOCAL_MAX_WORKERS = 8
 BACKTEST_EXTERNAL_AI_MAX_WORKERS = 2
 OVERALL_WIN_RATE_TARGET = 0.10
+SMART_BALANCE_MODE = "smart_balance"
+SMART_BALANCE_WINDOW = 60
+SMART_BALANCE_GUARD_WINDOW = 420
+SMART_BALANCE_SWITCH_MARGIN = 0.02
+SMART_BALANCE_HIT_WEIGHT = 1.0
+SMART_BALANCE_WIN_WEIGHT = 0.0
+SMART_BALANCE_AMOUNT_DIVISOR = 400.0
+SMART_BALANCE_PROFILE_CANDIDATES = (
+    ("multi_cover", "balanced+balanced_combo"),
+    ("multi_cover", "frequency_revert+three_pack_low_tier_cover"),
+    ("multi_cover", "frequency_revert+candidate_focus"),
+    ("multi_cover", "frequency_revert+front_back_split"),
+    ("single_hit", "balanced+balanced_combo"),
+)
+SMART_BALANCE_PROFILE_NAMES = tuple(
+    f"{strategy_mode}:{profile_name}" for strategy_mode, profile_name in SMART_BALANCE_PROFILE_CANDIDATES
+)
 _tuning_summary_cache: dict[tuple, BacktestTuningSummary] = {}
 
 
@@ -483,6 +500,70 @@ COMBO_WEIGHT_PROFILES: list[tuple[str, dict[str, float]]] = [
         },
     ),
     (
+        "three_pack_hybrid_core",
+        {
+            "candidate": 0.86,
+            "structure": 0.14,
+            "pair_front": 0.88,
+            "pair_back": 0.12,
+            "multi_cover_pair": 0.88,
+            "multi_cover_novelty": 0.12,
+            "single_hit_pair": 0.97,
+            "single_hit_novelty": 0.03,
+            "overlap_front": 0.010,
+            "overlap_back": 0.16,
+            "same_back_pair_penalty": 1.32,
+            "back_usage_penalty": 0.06,
+            "fresh_back_bonus": 0.28,
+            "crowd_penalty": 0.07,
+            "jackpot_front_core": 1.0,
+            "front_jackpot_pattern": 0.20,
+            "front_probe_slots": 1.0,
+            "front_probe_anchor_bonus": 0.06,
+            "front_probe_support_bonus": 0.025,
+            "back_independent_coverage": 1.0,
+            "back_jackpot_slots": 2.0,
+            "back_pair_floor_bonus": 0.16,
+            "back_pair_coverage_bonus": 0.34,
+            "front_pool_boost": 3.0,
+            "back_pool_boost": 1.0,
+            "front_combo_limit_boost": 44.0,
+            "back_combo_limit_boost": 3.0,
+            "ticket_candidate_budget_boost": 240.0,
+        },
+    ),
+    (
+        "three_pack_low_tier_cover",
+        {
+            "candidate": 0.76,
+            "structure": 0.24,
+            "pair_front": 0.70,
+            "pair_back": 0.30,
+            "multi_cover_pair": 0.68,
+            "multi_cover_novelty": 0.32,
+            "single_hit_pair": 0.90,
+            "single_hit_novelty": 0.10,
+            "overlap_front": 0.09,
+            "overlap_back": 0.34,
+            "same_back_pair_penalty": 1.42,
+            "back_usage_penalty": 0.18,
+            "fresh_back_bonus": 0.40,
+            "crowd_penalty": 0.12,
+            "front_probe_slots": 1.0,
+            "front_probe_anchor_bonus": 0.04,
+            "front_probe_support_bonus": 0.018,
+            "back_independent_coverage": 1.0,
+            "back_jackpot_slots": 1.0,
+            "back_pair_floor_bonus": 0.12,
+            "back_pair_coverage_bonus": 0.42,
+            "front_pool_boost": 2.0,
+            "back_pool_boost": 1.0,
+            "front_combo_limit_boost": 32.0,
+            "back_combo_limit_boost": 4.0,
+            "ticket_candidate_budget_boost": 180.0,
+        },
+    ),
+    (
         "wide_search",
         {
             **DEFAULT_COMBO_WEIGHTS,
@@ -558,6 +639,26 @@ HIGH_TIER_FAST_COMBO_PROFILE_NAMES = (
     "front_back_split",
 )
 HIGH_TIER_FALLBACK_PROFILE = "frequency_revert+candidate_focus"
+THREE_PACK_SCORE_PROFILE_NAMES = ("frequency_revert", "balanced", "recent_bias", "cold_bias")
+THREE_PACK_FAST_SCORE_PROFILE_NAMES = ("frequency_revert", "balanced", "recent_bias")
+THREE_PACK_COMBO_PROFILE_NAMES = (
+    "balanced_combo",
+    "candidate_focus",
+    "front_focus",
+    "front_back_split",
+    "wide_split_guarded",
+    "core_back_wheel_guarded",
+    "three_pack_hybrid_core",
+    "three_pack_low_tier_cover",
+)
+THREE_PACK_FAST_COMBO_PROFILE_NAMES = (
+    "candidate_focus",
+    "front_focus",
+    "front_back_split",
+    "three_pack_hybrid_core",
+    "three_pack_low_tier_cover",
+)
+THREE_PACK_FALLBACK_PROFILE = "balanced+balanced_combo"
 TOP3_PRIZE_LEVELS = {"一等奖", "二等奖", "三等奖"}
 TOP4_PRIZE_LEVELS = {"一等奖", "二等奖", "三等奖", "四等奖"}
 LOW_TIER_PRIZE_LEVELS = ("五等奖", "六等奖", "七等奖")
@@ -591,6 +692,8 @@ COMBO_WEIGHT_DISPLAY_NAMES = {
     "core_back_wheel_guarded": "前核后区集束轮转",
     "front_wheel_back_wheel_guarded": "前后区双轮转收束",
     "anchor_back_ladder_guarded": "前锚重复后区阶梯",
+    "three_pack_hybrid_core": "三组强核混合",
+    "three_pack_low_tier_cover": "三组低奖覆盖",
     "wide_search": "宽域搜索",
     "wide_guarded": "宽域冲刺",
     "wide_floor_harvest": "宽域收割",
@@ -599,6 +702,8 @@ COMBO_WEIGHT_DISPLAY_NAMES = {
 
 
 def _backtest_confidence_threshold(strategy_mode: str, scheme_count: int) -> float:
+    if strategy_mode == SMART_BALANCE_MODE:
+        strategy_mode = "multi_cover"
     base = 0.66 if strategy_mode == "single_hit" else 0.64
     if scheme_count >= 5:
         base += 0.02
@@ -1872,6 +1977,43 @@ def _build_issue_results_for_threshold_resolver(
         )
         if chosen_count <= 0:
             skipped_issues += 1
+            issue_results.append(
+                {
+                    "issue": trial["issue"],
+                    "draw_date": trial["draw_date"],
+                    "scheme_count": 0,
+                    "tuning_profile": trial.get("tuning_profile"),
+                    "issue_confidence": trial["issue_confidence"],
+                    "calibrated_confidence": confidence,
+                    "applied_threshold": threshold,
+                    "should_observe": True,
+                    "front_confidence": trial.get("front_confidence"),
+                    "front_calibrated_confidence": trial.get("front_calibrated_confidence"),
+                    "front_gate": trial.get("front_gate"),
+                    "back_confidence": trial.get("back_confidence"),
+                    "back_calibrated_confidence": trial.get("back_calibrated_confidence"),
+                    "back_gate": trial.get("back_gate"),
+                    "count_policy": count_policy,
+                    "decision_tier": "observe",
+                    "deep_search_triggered": trial.get("deep_search_triggered", False),
+                    "deep_search_reason": trial.get("deep_search_reason"),
+                    "decision_reason": "Threshold policy skipped this issue; kept in denominator with zero tickets.",
+                    "won_count": 0,
+                    "best_prize_level": None,
+                    "best_prize_amount": None,
+                    "total_prize_amount": 0.0,
+                    "winning_scheme_labels": [],
+                    "prize_level_hits": {},
+                    "prize_level_amounts": {},
+                    **_issue_quality_signals_from_evaluations([]),
+                    "ticket_mode": ticket_mode,
+                    "cost": 0.0,
+                    "front_pairwise_overlap_avg": 0.0,
+                    "back_pairwise_overlap_avg": 0.0,
+                    "back_pair_reuse_rate": 0.0,
+                    "fresh_back_number_rate": 0.0,
+                }
+            )
             continue
         selected_issue_count += 1
         selected_scheme_total += chosen_count
@@ -2326,6 +2468,31 @@ def _predefined_tuning_profile_lookup() -> dict[str, tuple[str, dict[str, float]
                 combo_weights.copy(),
             )
     return lookup
+
+
+def _smart_balance_mode_label(strategy_mode: str) -> str:
+    return "Single Hit" if strategy_mode == "single_hit" else "Multi Cover"
+
+
+def _smart_balance_candidate_profiles() -> list[tuple[str, str, str, dict[str, float], dict[str, float]]]:
+    lookup = _predefined_tuning_profile_lookup()
+    profiles: list[tuple[str, str, str, dict[str, float], dict[str, float]]] = []
+    for strategy_mode, profile_name in SMART_BALANCE_PROFILE_CANDIDATES:
+        profile = lookup.get(profile_name)
+        if profile is None:
+            continue
+        display_name, score_weights, combo_weights = profile
+        candidate_name = f"{strategy_mode}:{profile_name}"
+        profiles.append(
+            (
+                candidate_name,
+                strategy_mode,
+                f"{_smart_balance_mode_label(strategy_mode)} / {display_name}",
+                score_weights.copy(),
+                combo_weights.copy(),
+            )
+        )
+    return profiles
 
 
 def _override_only_tuning_summary(
@@ -2797,7 +2964,12 @@ def _iter_tuning_profiles(
 ) -> list[tuple[str, str, dict[str, float], dict[str, float]]]:
     score_profiles = SCORE_WEIGHT_PROFILES
     combo_profiles = COMBO_WEIGHT_PROFILES
-    if strategy_mode == "multi_cover" and scheme_count >= 5:
+    if strategy_mode == "multi_cover" and 3 <= scheme_count < 5:
+        score_name_allow = set(THREE_PACK_FAST_SCORE_PROFILE_NAMES if fast_tuning else THREE_PACK_SCORE_PROFILE_NAMES)
+        combo_name_allow = set(THREE_PACK_FAST_COMBO_PROFILE_NAMES if fast_tuning else THREE_PACK_COMBO_PROFILE_NAMES)
+        score_profiles = [item for item in SCORE_WEIGHT_PROFILES if item[0] in score_name_allow]
+        combo_profiles = [item for item in COMBO_WEIGHT_PROFILES if item[0] in combo_name_allow]
+    elif strategy_mode == "multi_cover" and scheme_count >= 5:
         score_name_allow = set(HIGH_TIER_FAST_SCORE_PROFILE_NAMES if fast_tuning else HIGH_TIER_SCORE_PROFILE_NAMES)
         combo_name_allow = set(HIGH_TIER_FAST_COMBO_PROFILE_NAMES if fast_tuning else HIGH_TIER_COMBO_PROFILE_NAMES)
         score_profiles = [item for item in SCORE_WEIGHT_PROFILES if item[0] in score_name_allow]
@@ -3541,6 +3713,8 @@ def _evaluate_backtest_issue(
     score_weights: dict[str, float],
     combo_weights: dict[str, float],
     tuning_profile: str | None,
+    include_baselines: bool = True,
+    search_profile: str = "full",
 ) -> dict:
     runtime_metadata: dict[str, object] = {}
     seed_timestamp = _historical_seed_timestamp(target.draw_date)
@@ -3555,7 +3729,7 @@ def _evaluate_backtest_issue(
         score_weights=score_weights,
         combo_weights=combo_weights,
         history_context=history_context,
-        search_profile="full",
+        search_profile=search_profile,
     )
     divination = _apply_runtime_divination_adjustments(
         divination=divination,
@@ -3603,44 +3777,54 @@ def _evaluate_backtest_issue(
     evaluation_summary = _summarize_scheme_evaluations(scheme_evaluations)
     coverage_metrics = _scheme_coverage_metrics(selected_schemes)
     quality_signals = _issue_quality_signals_from_evaluations(scheme_evaluations)
-    window_schemes = _window_model_schemes(
-        prior_history_desc,
-        scheme_count,
-        history_context=history_context,
-    )
-    window_summary = _best_result_for_schemes(
-        target,
-        window_schemes,
-        ticket_mode=ticket_mode,
-    )
     cost = round(selected_scheme_count * _ticket_unit_price(ticket_mode), 2)
     random_issue_results: list[dict] = []
-    for run_index in range(RANDOM_BASELINE_RUNS):
-        random_schemes = [
-            _random_scheme(target.issue, scheme_index, run_index=run_index)
-            for scheme_index in range(scheme_count)
-        ]
-        random_summary = _best_result_for_schemes(
+    if include_baselines:
+        window_schemes = _window_model_schemes(
+            prior_history_desc,
+            scheme_count,
+            history_context=history_context,
+        )
+        window_summary = _best_result_for_schemes(
             target,
-            random_schemes,
+            window_schemes,
             ticket_mode=ticket_mode,
         )
-        random_issue_results.append(
-            {
-                "issue": f"{target.issue}-r{run_index + 1}",
-                "draw_date": target.draw_date,
-                "scheme_count": scheme_count,
-                "ticket_mode": ticket_mode,
-                "won_count": random_summary["won_count"],
-                "best_prize_level": random_summary["best_prize_level"],
-                "best_prize_amount": random_summary["best_prize_amount"],
-                "total_prize_amount": random_summary["total_prize_amount"],
-                "winning_scheme_labels": [],
-                "prize_level_hits": random_summary["prize_level_hits"],
-                "prize_level_amounts": random_summary["prize_level_amounts"],
-                "cost": round(scheme_count * _ticket_unit_price(ticket_mode), 2),
-            }
-        )
+        for run_index in range(RANDOM_BASELINE_RUNS):
+            random_schemes = [
+                _random_scheme(target.issue, scheme_index, run_index=run_index)
+                for scheme_index in range(scheme_count)
+            ]
+            random_summary = _best_result_for_schemes(
+                target,
+                random_schemes,
+                ticket_mode=ticket_mode,
+            )
+            random_issue_results.append(
+                {
+                    "issue": f"{target.issue}-r{run_index + 1}",
+                    "draw_date": target.draw_date,
+                    "scheme_count": scheme_count,
+                    "ticket_mode": ticket_mode,
+                    "won_count": random_summary["won_count"],
+                    "best_prize_level": random_summary["best_prize_level"],
+                    "best_prize_amount": random_summary["best_prize_amount"],
+                    "total_prize_amount": random_summary["total_prize_amount"],
+                    "winning_scheme_labels": [],
+                    "prize_level_hits": random_summary["prize_level_hits"],
+                    "prize_level_amounts": random_summary["prize_level_amounts"],
+                    "cost": round(scheme_count * _ticket_unit_price(ticket_mode), 2),
+                }
+            )
+    else:
+        window_summary = {
+            "won_count": 0,
+            "best_prize_level": None,
+            "best_prize_amount": None,
+            "total_prize_amount": 0.0,
+            "prize_level_hits": {},
+            "prize_level_amounts": {},
+        }
     return {
         "index": index,
         "issue": target.issue,
@@ -3664,6 +3848,369 @@ def _evaluate_backtest_issue(
         "random_issue_results": random_issue_results,
         "cost": cost,
     }
+
+
+def _issue_result_from_backtest_payload(
+    raw: dict,
+    *,
+    scheme_count: int,
+    ticket_mode: str,
+    tuning_profile: str | None,
+    count_policy: str,
+    decision_tier: str,
+    decision_reason: str,
+) -> dict:
+    evaluation_summary = raw["evaluation_summary"]
+    quality_signals = raw["quality_signals"]
+    coverage_metrics = raw["coverage_metrics"]
+    return {
+        "issue": raw["issue"],
+        "draw_date": raw["draw_date"],
+        "scheme_count": scheme_count,
+        "ticket_mode": ticket_mode,
+        "tuning_profile": tuning_profile,
+        "issue_confidence": float(raw.get("issue_confidence") or 0.0),
+        "calibrated_confidence": float(raw.get("issue_confidence") or 0.0),
+        "applied_threshold": float(raw.get("dynamic_threshold") or 0.0),
+        "should_observe": False,
+        "front_confidence": round(float(raw.get("front_confidence") or 0.0), 4),
+        "front_calibrated_confidence": round(float(raw.get("front_confidence") or 0.0), 4),
+        "front_gate": 0.0,
+        "back_confidence": round(float(raw.get("back_confidence") or 0.0), 4),
+        "back_calibrated_confidence": round(float(raw.get("back_confidence") or 0.0), 4),
+        "back_gate": 0.0,
+        "count_policy": count_policy,
+        "decision_tier": decision_tier,
+        "deep_search_triggered": raw["deep_search_triggered"],
+        "deep_search_reason": raw["deep_search_reason"],
+        "decision_reason": decision_reason,
+        "won_count": evaluation_summary["won_count"],
+        "best_prize_level": evaluation_summary["best_prize_level"],
+        "best_prize_amount": evaluation_summary["best_prize_amount"],
+        "total_prize_amount": evaluation_summary["total_prize_amount"],
+        "winning_scheme_labels": evaluation_summary["winning_scheme_labels"],
+        "prize_level_hits": evaluation_summary["prize_level_hits"],
+        "prize_level_amounts": evaluation_summary["prize_level_amounts"],
+        **quality_signals,
+        "cost": round(scheme_count * _ticket_unit_price(ticket_mode), 2),
+        "front_pairwise_overlap_avg": coverage_metrics.front_pairwise_overlap_avg,
+        "back_pairwise_overlap_avg": coverage_metrics.back_pairwise_overlap_avg,
+        "back_pair_reuse_rate": coverage_metrics.back_pair_reuse_rate,
+        "fresh_back_number_rate": coverage_metrics.fresh_back_number_rate,
+    }
+
+
+def _smart_balance_issue_score(issue_result: dict) -> float:
+    hit_score = SMART_BALANCE_HIT_WEIGHT if int(issue_result.get("won_count") or 0) > 0 else 0.0
+    win_score = float(issue_result.get("won_count") or 0) * SMART_BALANCE_WIN_WEIGHT
+    amount_score = float(issue_result.get("total_prize_amount") or 0.0) / SMART_BALANCE_AMOUNT_DIVISOR
+    return hit_score + win_score + amount_score
+
+
+def _smart_balance_profile_summary_score(stats: BacktestResponse) -> float:
+    return round(
+        stats.issue_hit_rate * 1.0
+        + stats.overall_win_rate * 0.35
+        + (stats.total_prize_amount / max(1.0, stats.total_cost)) / 3.0,
+        4,
+    )
+
+
+def _run_smart_balance_backtest_core(
+    history_asc: list,
+    *,
+    recent_issues: int,
+    scheme_count: int,
+    ticket_mode: str,
+    ai_replay_mode: str,
+    ai_config: AIConfigRequest | None,
+    progress_callback: ProgressCallback | None = None,
+    cancel_check: CancelCheck | None = None,
+) -> BacktestResponse:
+    if ai_replay_mode != "local_only":
+        raise ValueError("智能平衡回测目前仅支持本地回放。")
+    _resolve_backtest_ai_config(ai_replay_mode, ai_config)
+    target_draws = history_asc[-recent_issues:]
+    eval_start_index = max(0, len(history_asc) - recent_issues)
+    warmup_window = max(SMART_BALANCE_WINDOW, SMART_BALANCE_GUARD_WINDOW)
+    warmup_draws = history_asc[max(0, eval_start_index - warmup_window) : eval_start_index]
+    eval_draws = [*warmup_draws, *target_draws]
+    target_issue_set = {draw.issue for draw in target_draws}
+    history_context_cache = _build_history_context_cache(history_asc, eval_draws)
+    prepared_targets: list[tuple[int, object, list, PrecomputedHistoryFeatures]] = []
+    for index, target in enumerate(eval_draws):
+        if cancel_check:
+            cancel_check()
+        history_item = history_context_cache.get(target.issue)
+        if not history_item:
+            continue
+        prior_history_desc, history_context = history_item
+        if history_context.history_size < 30:
+            continue
+        prepared_targets.append((index, target, prior_history_desc, history_context))
+
+    candidate_profiles = _smart_balance_candidate_profiles()
+    if not candidate_profiles:
+        raise ValueError("智能平衡候选档位为空。")
+
+    total_tasks = len(prepared_targets) * len(candidate_profiles)
+    completed_tasks = 0
+    candidate_issue_results: dict[str, dict[str, dict]] = {profile_name: {} for profile_name, *_ in candidate_profiles}
+
+    def _update_smart_progress(stage: str, progress: float, message: str, processed: int, total: int) -> None:
+        if progress_callback:
+            progress_callback(
+                stage=stage,
+                progress=progress,
+                message=message,
+                processed_issues=processed,
+                total_issues=total,
+            )
+
+    _update_smart_progress(
+        "smart_candidates",
+        0.02,
+        "正在生成智能平衡候选档位",
+        0,
+        max(1, total_tasks),
+    )
+
+    def evaluate_candidate(
+        target_index: int,
+        target,
+        prior_history_desc: list,
+        history_context: PrecomputedHistoryFeatures,
+        profile_name: str,
+        candidate_strategy_mode: str,
+        display_name: str,
+        score_weights: dict[str, float],
+        combo_weights: dict[str, float],
+    ) -> tuple[str, str, dict]:
+        raw = _evaluate_backtest_issue(
+            target_index,
+            target=target,
+            prior_history_desc=prior_history_desc,
+            history_context=history_context,
+            scheme_count=scheme_count,
+            strategy_mode=candidate_strategy_mode,
+            ticket_mode=ticket_mode,
+            backtest_ai_config=None,
+            score_weights=score_weights,
+            combo_weights=combo_weights,
+            tuning_profile=display_name,
+            include_baselines=False,
+            search_profile="full",
+        )
+        issue_result = _issue_result_from_backtest_payload(
+            raw,
+            scheme_count=scheme_count,
+            ticket_mode=ticket_mode,
+            tuning_profile=display_name,
+            count_policy="smart_balance_candidate",
+            decision_tier=profile_name,
+            decision_reason=f"智能平衡候选档位：{display_name}",
+        )
+        return profile_name, target.issue, issue_result
+
+    worker_count = _backtest_parallel_workers(total_tasks, ai_replay_mode=ai_replay_mode)
+    if worker_count <= 1:
+        for target_index, target, prior_history_desc, history_context in prepared_targets:
+            for profile_name, candidate_strategy_mode, display_name, score_weights, combo_weights in candidate_profiles:
+                if cancel_check:
+                    cancel_check()
+                profile_name, issue, issue_result = evaluate_candidate(
+                    target_index,
+                    target,
+                    prior_history_desc,
+                    history_context,
+                    profile_name,
+                    candidate_strategy_mode,
+                    display_name,
+                    score_weights,
+                    combo_weights,
+                )
+                candidate_issue_results[profile_name][issue] = issue_result
+                completed_tasks += 1
+                _update_smart_progress(
+                    "smart_candidates",
+                    0.03 + (completed_tasks / max(1, total_tasks)) * 0.83,
+                    f"正在生成智能候选 {completed_tasks}/{total_tasks}",
+                    completed_tasks,
+                    total_tasks,
+                )
+    else:
+        with ThreadPoolExecutor(max_workers=worker_count, thread_name_prefix="smart-backtest") as executor:
+            future_map = {}
+            for target_index, target, prior_history_desc, history_context in prepared_targets:
+                for profile_name, candidate_strategy_mode, display_name, score_weights, combo_weights in candidate_profiles:
+                    future = executor.submit(
+                        evaluate_candidate,
+                        target_index,
+                        target,
+                        prior_history_desc,
+                        history_context,
+                        profile_name,
+                        candidate_strategy_mode,
+                        display_name,
+                        score_weights,
+                        combo_weights,
+                    )
+                    future_map[future] = (profile_name, target.issue)
+            for future in as_completed(future_map):
+                if cancel_check:
+                    cancel_check()
+                profile_name, issue, issue_result = future.result()
+                candidate_issue_results[profile_name][issue] = issue_result
+                completed_tasks += 1
+                _update_smart_progress(
+                    "smart_candidates",
+                    0.03 + (completed_tasks / max(1, total_tasks)) * 0.83,
+                    f"正在生成智能候选 {completed_tasks}/{total_tasks}",
+                    completed_tasks,
+                    total_tasks,
+                )
+
+    _update_smart_progress(
+        "smart_selecting",
+        0.88,
+        "正在按滚动窗口选择每期档位",
+        0,
+        len(prepared_targets),
+    )
+    profile_display = {profile_name: display_name for profile_name, _, display_name, *_ in candidate_profiles}
+    fallback_profile = candidate_profiles[0][0]
+    selected_issue_results: list[dict] = []
+    selected_profile_counts: Counter[str] = Counter()
+    prepared_issues = [target.issue for _, target, _, _ in prepared_targets]
+    for index, issue in enumerate(prepared_issues):
+        if cancel_check:
+            cancel_check()
+        if index < warmup_window:
+            chosen_profile = fallback_profile
+            reason = (
+                f"智能平衡需要至少 {warmup_window} 期滚动样本；"
+                f"当前为预热期，使用{profile_display.get(chosen_profile, chosen_profile)}。"
+            )
+        else:
+            attack_issues = prepared_issues[index - SMART_BALANCE_WINDOW : index]
+            guard_issues = prepared_issues[index - SMART_BALANCE_GUARD_WINDOW : index]
+            attack_scores: dict[str, float] = {}
+            guard_scores: dict[str, float] = {}
+            for profile_name, *_ in candidate_profiles:
+                attack_scores[profile_name] = sum(
+                    _smart_balance_issue_score(candidate_issue_results[profile_name][window_issue])
+                    for window_issue in attack_issues
+                ) / max(1, SMART_BALANCE_WINDOW)
+                guard_scores[profile_name] = sum(
+                    _smart_balance_issue_score(candidate_issue_results[profile_name][window_issue])
+                    for window_issue in guard_issues
+                ) / max(1, SMART_BALANCE_GUARD_WINDOW)
+            attack_profile = max(
+                attack_scores,
+                key=lambda name: (attack_scores[name], name == fallback_profile),
+            )
+            guard_profile = max(
+                guard_scores,
+                key=lambda name: (guard_scores[name], name == fallback_profile),
+            )
+            if attack_scores[attack_profile] >= guard_scores[guard_profile] + SMART_BALANCE_SWITCH_MARGIN:
+                chosen_profile = attack_profile
+                reason = (
+                    f"智能平衡按短窗 {SMART_BALANCE_WINDOW} 期评分选择"
+                    f"{profile_display.get(chosen_profile, chosen_profile)}；"
+                    f"短窗 {attack_scores[chosen_profile]:.3f}，长窗最佳 {guard_scores[guard_profile]:.3f}。"
+                )
+            else:
+                chosen_profile = guard_profile
+                reason = (
+                    f"智能平衡以长窗 {SMART_BALANCE_GUARD_WINDOW} 期保底选择"
+                    f"{profile_display.get(chosen_profile, chosen_profile)}；"
+                    f"长窗 {guard_scores[chosen_profile]:.3f}，短窗最佳 {attack_scores[attack_profile]:.3f}。"
+                )
+        selected_result = dict(candidate_issue_results[chosen_profile][issue])
+        selected_result["count_policy"] = f"smart_balance_{SMART_BALANCE_WINDOW}_{SMART_BALANCE_GUARD_WINDOW}"
+        selected_result["decision_tier"] = chosen_profile
+        selected_result["decision_reason"] = reason
+        if issue in target_issue_set:
+            selected_profile_counts[chosen_profile] += 1
+            selected_issue_results.append(selected_result)
+
+    response = build_backtest_stats(selected_issue_results)  # type: ignore[arg-type]
+    response.recent_issues = recent_issues
+    response.requested_issues = recent_issues
+    response.skipped_issues = 0
+    response.confidence_threshold = 0.0
+    response.scheme_count = scheme_count
+    response.strategy_mode = SMART_BALANCE_MODE  # type: ignore[assignment]
+    response.ticket_mode = ticket_mode  # type: ignore[assignment]
+    response.ai_replay_mode = ai_replay_mode  # type: ignore[assignment]
+    response.count_policy = f"smart_balance_{SMART_BALANCE_WINDOW}_{SMART_BALANCE_GUARD_WINDOW}"
+    response.policy_selection_reason = (
+        f"智能平衡每期只使用开奖前已知结果，先看近 {SMART_BALANCE_WINDOW} 期进攻评分，"
+        f"再用近 {SMART_BALANCE_GUARD_WINDOW} 期长窗评分做保底校验，"
+        "在多注覆盖参数档位与单注优先档位中选择候选。"
+    )
+    response.threshold_selection_reason = "智能平衡不按置信阈值删票，主结果保持每期固定全量方案组数。"
+    response.max_drawdown = _max_drawdown(selected_issue_results)
+    response.max_miss_streak = _max_miss_streak(selected_issue_results)
+    response.theoretical_single_win_rate = round(_theoretical_single_win_rate(), 6)
+    response.window_summaries = _build_window_summaries(selected_issue_results)
+    response.benchmarks = []
+    response.mode_comparison = []
+    response.issue_comparison = []
+    response.threshold_scan = []
+    response.ai_engine = "Local Ensemble AI / Smart Balance"
+
+    candidate_summaries: list[BacktestTuningCandidate] = []
+    for profile_name, _, display_name, *_ in candidate_profiles:
+        profile_issue_results = [
+            candidate_issue_results[profile_name][issue]
+            for issue in prepared_issues
+            if issue in target_issue_set and issue in candidate_issue_results[profile_name]
+        ]
+        profile_stats = build_backtest_stats(profile_issue_results)  # type: ignore[arg-type]
+        candidate_summaries.append(
+            BacktestTuningCandidate(
+                name=profile_name,
+                display_name=display_name,
+                score=_smart_balance_profile_summary_score(profile_stats),
+                overall_win_rate=profile_stats.overall_win_rate,
+                issue_hit_rate=profile_stats.issue_hit_rate,
+                sample_issues=profile_stats.total_issues,
+            )
+        )
+    counts_text = "；".join(
+        f"{profile_display.get(profile_name, profile_name)} {count} 期"
+        for profile_name, count in selected_profile_counts.most_common()
+    )
+    response.tuning_summary = BacktestTuningSummary(
+        enabled=True,
+        selected_profile=f"smart_balance_{SMART_BALANCE_WINDOW}_{SMART_BALANCE_GUARD_WINDOW}",
+        selected_display_name=f"智能平衡滚动 {SMART_BALANCE_WINDOW}/{SMART_BALANCE_GUARD_WINDOW} 期",
+        selected_reason="按开奖前短窗进攻评分与长窗保底评分逐期选择候选档位。",
+        applied_profile=f"smart_balance_{SMART_BALANCE_WINDOW}_{SMART_BALANCE_GUARD_WINDOW}",
+        applied_display_name=f"智能平衡滚动 {SMART_BALANCE_WINDOW}/{SMART_BALANCE_GUARD_WINDOW} 期",
+        applied_reason=f"本次智能平衡档位分布：{counts_text}",
+        sample_issues=min(warmup_window, response.total_issues),
+        selection_basis="rolling_profile_selector",
+        profiles=candidate_summaries,
+        weights={
+            "hit_weight": SMART_BALANCE_HIT_WEIGHT,
+            "win_weight": SMART_BALANCE_WIN_WEIGHT,
+            "amount_divisor": SMART_BALANCE_AMOUNT_DIVISOR,
+            "window": float(SMART_BALANCE_WINDOW),
+            "guard_window": float(SMART_BALANCE_GUARD_WINDOW),
+            "switch_margin": SMART_BALANCE_SWITCH_MARGIN,
+        },
+    )
+    _update_smart_progress(
+        "finalizing",
+        0.98,
+        "正在汇总智能平衡结果",
+        response.total_issues,
+        response.total_issues,
+    )
+    return response
 
 
 def _build_tuning_summary(
@@ -3775,13 +4322,19 @@ def _build_tuning_summary(
     coarse_record_by_name = {
         str(item["name"]): item for item in coarse_candidate_records if item.get("name")
     }
+    guarded_baseline_profile = (
+        THREE_PACK_FALLBACK_PROFILE
+        if strategy_mode == "multi_cover" and 3 <= scheme_count < 5
+        else HIGH_TIER_FALLBACK_PROFILE
+    )
+    guarded_candidate_enabled = strategy_mode == "multi_cover" and scheme_count >= 3
     guarded_overall_coarse_candidate = (
-        _pick_guarded_overall_win_candidate(coarse_candidate_records, baseline_name=HIGH_TIER_FALLBACK_PROFILE)
-        if strategy_mode == "multi_cover" and scheme_count >= 5
+        _pick_guarded_overall_win_candidate(coarse_candidate_records, baseline_name=guarded_baseline_profile)
+        if guarded_candidate_enabled
         else None
     )
     for extra_name in (
-        HIGH_TIER_FALLBACK_PROFILE,
+        guarded_baseline_profile,
         _pick_best_overall_win_record_name(coarse_candidate_records),
         str(guarded_overall_coarse_candidate["name"]) if guarded_overall_coarse_candidate else None,
     ):
@@ -4042,13 +4595,13 @@ def _build_tuning_summary(
     runner_up_walk_forward_score_range: float | None = None
     best_overall_train_profile_name = _pick_best_overall_win_record_name(train_candidate_records)
     guarded_overall_train_candidate = (
-        _pick_guarded_overall_win_candidate(train_candidate_records, baseline_name=HIGH_TIER_FALLBACK_PROFILE)
-        if strategy_mode == "multi_cover" and scheme_count >= 5
+        _pick_guarded_overall_win_candidate(train_candidate_records, baseline_name=guarded_baseline_profile)
+        if guarded_candidate_enabled
         else None
     )
     guarded_train_candidate = (
-        _pick_guarded_high_tier_candidate(train_candidate_records, baseline_name=HIGH_TIER_FALLBACK_PROFILE)
-        if strategy_mode == "multi_cover" and scheme_count >= 5
+        _pick_guarded_high_tier_candidate(train_candidate_records, baseline_name=guarded_baseline_profile)
+        if guarded_candidate_enabled
         else None
     )
     guarded_overall_validation_candidate: dict[str, object] | None = None
@@ -4147,10 +4700,10 @@ def _build_tuning_summary(
         else:
             selected_reason = "按单次验证集分数选中"
 
-        if strategy_mode == "multi_cover" and scheme_count >= 5:
+        if guarded_candidate_enabled:
             guarded_overall_validation_candidate = _pick_guarded_overall_win_candidate(
                 validation_candidate_records,
-                baseline_name=HIGH_TIER_FALLBACK_PROFILE,
+                baseline_name=guarded_baseline_profile,
             )
             if guarded_overall_validation_candidate and not walk_forward_windows:
                 selected_candidate_name = str(guarded_overall_validation_candidate["name"])
@@ -4174,7 +4727,7 @@ def _build_tuning_summary(
                 selection_margin = None
             guarded_validation_candidate = _pick_guarded_high_tier_candidate(
                 validation_candidate_records,
-                baseline_name=HIGH_TIER_FALLBACK_PROFILE,
+                baseline_name=guarded_baseline_profile,
             )
             if guarded_validation_candidate and not walk_forward_windows and not guarded_overall_validation_candidate:
                 selected_candidate_name = str(guarded_validation_candidate["name"])
@@ -4218,7 +4771,7 @@ def _build_tuning_summary(
                 continue
             walk_forward_candidate_names.append(candidate.name)
         for extra_name in (
-            HIGH_TIER_FALLBACK_PROFILE,
+            guarded_baseline_profile,
             best_overall_train_profile_name,
             best_overall_validation_profile_name,
             str(guarded_validation_candidate["name"]) if guarded_validation_candidate else None,
@@ -4381,10 +4934,10 @@ def _build_tuning_summary(
                 )
             else:
                 selected_reason = "按 Walk-forward 稳定性修正后分数选中"
-            if strategy_mode == "multi_cover" and scheme_count >= 5:
+            if guarded_candidate_enabled:
                 guarded_overall_walk_candidate = _pick_guarded_overall_win_candidate(
                     walk_forward_candidate_records,
-                    baseline_name=HIGH_TIER_FALLBACK_PROFILE,
+                    baseline_name=guarded_baseline_profile,
                 )
                 if guarded_overall_walk_candidate:
                     selected_candidate_name = str(guarded_overall_walk_candidate["name"])
@@ -4417,7 +4970,7 @@ def _build_tuning_summary(
                         selected_walk_forward_issue_hit_rate = guarded_walk_stats.issue_hit_rate
                 guarded_walk_candidate = _pick_guarded_high_tier_candidate(
                     walk_forward_candidate_records,
-                    baseline_name=HIGH_TIER_FALLBACK_PROFILE,
+                    baseline_name=guarded_baseline_profile,
                 )
                 if guarded_walk_candidate and not guarded_overall_walk_candidate:
                     selected_candidate_name = str(guarded_walk_candidate["name"])
@@ -4927,8 +5480,8 @@ def _run_backtest_core(
                 "label_hits": label_hits,
             }
         )
-        selected_schemes = raw_selected_schemes[:chosen_scheme_count] if chosen_scheme_count > 0 else []
-        scheme_evaluations = raw_scheme_evaluations[:chosen_scheme_count] if chosen_scheme_count > 0 else []
+        selected_schemes = raw_selected_schemes
+        scheme_evaluations = raw_scheme_evaluations
         evaluation_summary = _summarize_scheme_evaluations(scheme_evaluations)
         quality_signals = _issue_quality_signals_from_evaluations(scheme_evaluations)
         coverage_metrics = _scheme_coverage_metrics(selected_schemes)
@@ -4998,18 +5551,21 @@ def _run_backtest_core(
                 "issue_confidence": issue_confidence,
                 "calibrated_confidence": calibrated_confidence,
                 "applied_threshold": calibrated_threshold,
-                "should_observe": should_observe,
+                "should_observe": False,
                 "front_confidence": round(front_confidence, 4),
                 "front_calibrated_confidence": front_calibrated_confidence,
                 "front_gate": round(front_gate, 4),
                 "back_confidence": round(back_confidence, 4),
                 "back_calibrated_confidence": back_calibrated_confidence,
                 "back_gate": round(back_gate, 4),
-                "count_policy": count_policy,
-                "decision_tier": decision_tier,
+                "count_policy": "fixed_full_count",
+                "decision_tier": "full_count",
                 "deep_search_triggered": raw["deep_search_triggered"],
                 "deep_search_reason": raw["deep_search_reason"],
-                "decision_reason": decision_reason,
+                "decision_reason": (
+                    "Backtest main result evaluates the full user-requested scheme count for every issue. "
+                    f"Adaptive diagnostic policy suggestion: {decision_reason}"
+                ),
                 "won_count": evaluation_summary["won_count"],
                 "best_prize_level": evaluation_summary["best_prize_level"],
                 "best_prize_amount": evaluation_summary["best_prize_amount"],
@@ -5061,16 +5617,20 @@ def _run_backtest_core(
         4,
     )
     applied_threshold = default_threshold
-    applied_skipped_issues = skipped_issues
-    current_policy_name = count_policy
-    policy_selection_reason = f"回测按 {count_policy} 分层策略实际出号统计，低置信期可观望或减少组合数。"
+    applied_skipped_issues = 0
+    current_policy_name = "fixed_full_count"
+    policy_selection_reason = (
+        "主回测结果按每期固定全量出号统计，与推演中心当前展示的可见方案组数保持一致。"
+        "动态阈值、观望判断和分层出手策略仅保留在诊断字段与阈值扫描中，不再直接改变主回测的出票数。"
+    )
     default_selection_score, _, _, default_max_drawdown, default_max_miss_streak, default_stability_breakdown = _selection_metrics_from_issue_results(
         issue_results,
         strategy_mode=strategy_mode,
         scheme_count=max(1, scheme_count),
     )
     threshold_selection_reason = (
-        f"回测按 {count_policy} 分层策略最多保留 {scheme_count} 组；阈值扫描仅作辅助参考，当前方案最大回撤 {default_max_drawdown:.2f}，最长空窗 {default_max_miss_streak} 期。"
+        f"主回测按固定 {scheme_count} 组全量评估；阈值扫描仅作辅助参考。"
+        f"当前主结果最大回撤 {default_max_drawdown:.2f}，最长空窗 {default_max_miss_streak} 期。"
     )
     response.recent_issues = recent_issues
     response.requested_issues = recent_issues
@@ -5137,6 +5697,60 @@ def _run_backtest_core(
     return response
 
 
+def _scale_backtest_response(response: BacktestResponse, multiple: int) -> None:
+    """Multiply all monetary fields by `multiple` in place.
+
+    Hit counts, win rates and probabilities are NOT scaled, only money amounts.
+    """
+    if multiple <= 1:
+        return
+    factor = float(multiple)
+
+    def _scale_amount(value):
+        if value is None:
+            return None
+        return round(value * factor, 2)
+
+    response.total_cost = _scale_amount(response.total_cost)
+    response.total_prize_amount = _scale_amount(response.total_prize_amount) or 0.0
+    response.net_profit = _scale_amount(response.net_profit)
+    if response.max_drawdown is not None:
+        response.max_drawdown = _scale_amount(response.max_drawdown)
+
+    for item in response.issues:
+        item.cost = _scale_amount(item.cost)
+        item.best_prize_amount = _scale_amount(item.best_prize_amount)
+        item.total_prize_amount = _scale_amount(item.total_prize_amount)
+        if item.prize_level_amounts:
+            item.prize_level_amounts = {
+                level: _scale_amount(amount) or 0.0
+                for level, amount in item.prize_level_amounts.items()
+            }
+        if getattr(item, "schemes", None):
+            for scheme in item.schemes:
+                if getattr(scheme, "prize_amount", None) is not None:
+                    scheme.prize_amount = _scale_amount(scheme.prize_amount)
+
+    for benchmark in (response.benchmarks or []):
+        benchmark.total_cost = _scale_amount(benchmark.total_cost)
+        benchmark.total_prize_amount = _scale_amount(benchmark.total_prize_amount)
+        benchmark.net_profit = _scale_amount(benchmark.net_profit)
+
+    for window in (response.window_summaries or []):
+        window.total_cost = _scale_amount(window.total_cost)
+        window.total_prize_amount = _scale_amount(window.total_prize_amount)
+        window.net_profit = _scale_amount(window.net_profit)
+
+    for breakdown in (response.prize_level_breakdown or []):
+        breakdown.total_prize_amount = _scale_amount(breakdown.total_prize_amount) or 0.0
+        breakdown.average_prize_amount = _scale_amount(breakdown.average_prize_amount) or 0.0
+
+    for mode in (response.mode_comparison or []):
+        mode.total_cost = _scale_amount(mode.total_cost)
+        mode.total_prize_amount = _scale_amount(mode.total_prize_amount)
+        mode.net_profit = _scale_amount(mode.net_profit)
+
+
 def run_backtest(
     recent_issues: int = 30,
     scheme_count: int = 3,
@@ -5146,10 +5760,24 @@ def run_backtest(
     compare_modes: bool = False,
     ai_config: AIConfigRequest | None = None,
     tuning_profile_override: str | None = None,
+    multiple: int = 1,
     progress_callback: ProgressCallback | None = None,
     cancel_check: CancelCheck | None = None,
 ) -> BacktestResponse:
     history_asc = get_all_history_asc()
+    if strategy_mode == SMART_BALANCE_MODE:
+        response = _run_smart_balance_backtest_core(
+            history_asc,
+            recent_issues=recent_issues,
+            scheme_count=scheme_count,
+            ticket_mode=ticket_mode,
+            ai_replay_mode=ai_replay_mode,
+            ai_config=ai_config,
+            progress_callback=progress_callback,
+            cancel_check=cancel_check,
+        )
+        _scale_backtest_response(response, multiple)
+        return response
     response = _run_backtest_core(
         history_asc,
         recent_issues=recent_issues,
@@ -5207,6 +5835,7 @@ def run_backtest(
             selected_display_name=response.tuning_summary.selected_display_name or "自动方案",
         )
     if not compare_modes:
+        _scale_backtest_response(response, multiple)
         return response
 
     other_mode = "single_hit" if strategy_mode == "multi_cover" else "multi_cover"
@@ -5235,4 +5864,5 @@ def run_backtest(
         _build_mode_summary(other_response),
     ]
     response.issue_comparison = _build_issue_comparison(response, other_response)
+    _scale_backtest_response(response, multiple)
     return response

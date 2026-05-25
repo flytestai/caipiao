@@ -15,6 +15,7 @@ from app.models import (
     ManualDrawResult,
     ManualDrawResultUpsertRequest,
     SavedScheme,
+    SavedSchemeBatchCreateRequest,
     SavedSchemeCreateRequest,
     SavedSchemeListResponse,
     SavedSchemeManualCreateRequest,
@@ -28,12 +29,14 @@ from app.services.backtest_service import run_backtest, run_divination_with_back
 from app.services.meihua import AIConfigurationError, AIGenerationError
 from app.services.repository import (
     delete_saved_scheme,
+    delete_saved_schemes_by_issue,
     delete_manual_draw_result,
     get_history,
     get_sync_status,
     list_saved_schemes,
     save_manual_scheme,
     save_scheme,
+    save_schemes,
     upsert_manual_draw_result,
 )
 from app.services.sync_service import sync_official_history
@@ -95,6 +98,11 @@ def saved_scheme_create(payload: SavedSchemeCreateRequest) -> SavedScheme:
     return save_scheme(payload)
 
 
+@router.post("/saved-schemes/batch", response_model=list[SavedScheme], summary="Save generated schemes in one batch")
+def saved_scheme_batch_create(payload: SavedSchemeBatchCreateRequest) -> list[SavedScheme]:
+    return save_schemes(payload.items)
+
+
 @router.post(
     "/saved-schemes/manual",
     response_model=SavedScheme,
@@ -137,6 +145,14 @@ def saved_scheme_delete(saved_id: int) -> Response:
     return Response(status_code=204)
 
 
+@router.delete("/saved-schemes/issues/{issue}", summary="Delete all saved schemes for one issue")
+def saved_scheme_issue_delete(issue: str) -> dict[str, int]:
+    deleted = delete_saved_schemes_by_issue(issue)
+    if deleted == 0:
+        raise HTTPException(status_code=404, detail="Saved schemes not found")
+    return {"deleted": deleted}
+
+
 @router.post("/backtest", response_model=BacktestResponse, summary="Run historical backtest")
 def backtest(payload: BacktestRequest) -> BacktestResponse:
     try:
@@ -149,6 +165,7 @@ def backtest(payload: BacktestRequest) -> BacktestResponse:
             compare_modes=payload.compare_modes,
             ai_config=payload.ai_config,
             tuning_profile_override=payload.tuning_profile_override,
+            multiple=payload.multiple,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

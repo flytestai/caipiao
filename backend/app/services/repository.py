@@ -422,6 +422,56 @@ def get_effective_draw_by_issue(issue: str) -> tuple[LottoDraw | None, str]:
     return official, "official" if official else "none"
 
 
+def get_effective_draws_by_issues(issues: list[str]) -> dict[str, tuple[LottoDraw | None, str]]:
+    """Batch-fetch effective draws for a list of issues to avoid N+1 queries."""
+    unique = sorted({str(issue) for issue in issues if issue})
+    if not unique:
+        return {}
+    placeholders = ",".join("?" for _ in unique)
+    with get_connection() as conn:
+        manual_rows = conn.execute(
+            f"""
+            SELECT issue, draw_date, front_numbers, back_numbers, high_pool, created_at, updated_at
+            FROM manual_draw_results
+            WHERE issue IN ({placeholders})
+            """,
+            unique,
+        ).fetchall()
+        official_rows = conn.execute(
+            f"""
+            SELECT issue, draw_date, front_numbers, back_numbers, raw_result, pool_balance_afterdraw, prize_level_list
+            FROM lotto_draws
+            WHERE issue IN ({placeholders})
+            """,
+            unique,
+        ).fetchall()
+    manual_map = {str(row["issue"]): row for row in manual_rows}
+    official_map = {str(row["issue"]): row for row in official_rows}
+    result: dict[str, tuple[LottoDraw | None, str]] = {}
+    for issue in unique:
+        manual_row = manual_map.get(issue)
+        if manual_row is not None:
+            manual = _row_to_manual_draw_result(manual_row)
+            result[issue] = (
+                LottoDraw(
+                    issue=manual.issue,
+                    draw_date=manual.draw_date or date.today(),
+                    front_numbers=manual.front_numbers,
+                    back_numbers=manual.back_numbers,
+                    raw_result="manual",
+                    prize_level_list=_manual_prize_levels(manual.high_pool),
+                ),
+                "manual",
+            )
+            continue
+        official_row = official_map.get(issue)
+        if official_row is not None:
+            result[issue] = (_row_to_draw(official_row), "official")
+        else:
+            result[issue] = (None, "none")
+    return result
+
+
 def get_total_draws() -> int:
     with get_connection() as conn:
         row = conn.execute("SELECT COUNT(*) AS count FROM lotto_draws").fetchone()
@@ -476,69 +526,88 @@ def get_sync_status() -> SyncStatus:
 def save_scheme(payload: SavedSchemeCreateRequest) -> SavedScheme:
     scheme = payload.scheme
     with get_connection() as conn:
-        existing = conn.execute(
-            """
-            SELECT id FROM saved_schemes
-            WHERE target_issue = ? AND front_numbers = ? AND back_numbers = ?
-            """,
-            (payload.target_issue, _serialize_numbers(scheme.front_numbers), _serialize_numbers(scheme.back_numbers)),
-        ).fetchone()
-        if existing:
-            conn.execute(
-                """
-                UPDATE saved_schemes
-                SET label = ?, rationale = ?, multiple = ?, is_additional = ?, updated_at = CURRENT_TIMESTAMP
-                WHERE id = ?
-                """,
-                (scheme.label, scheme.rationale, payload.multiple, 1 if payload.is_additional else 0, existing["id"]),
-            )
-            conn.commit()
-            row = conn.execute("SELECT * FROM saved_schemes WHERE id = ?", (existing["id"],)).fetchone()
-            return _row_to_saved_scheme(row)
-
-        conn.execute(
-            """
-            INSERT INTO saved_schemes (
-                target_issue, seed_mode, seed_value, moving_line, ai_engine, label,
-                confidence, strategy, front_numbers, back_numbers, rationale,
-                tuning_profile, issue_confidence, calibrated_confidence, applied_threshold,
-                should_observe, front_confidence, front_gate, back_confidence, back_gate,
-                deep_search_triggered, deep_search_reason, decision_reason, multiple, is_additional, updated_at
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-            """,
-            (
-                payload.target_issue,
-                payload.seed_mode,
-                payload.seed_value,
-                payload.moving_line,
-                payload.ai_engine,
-                scheme.label,
-                scheme.confidence,
-                scheme.strategy,
-                _serialize_numbers(scheme.front_numbers),
-                _serialize_numbers(scheme.back_numbers),
-                scheme.rationale,
-                payload.tuning_profile,
-                payload.issue_confidence,
-                payload.calibrated_confidence,
-                payload.applied_threshold,
-                1 if payload.should_observe else 0,
-                payload.front_confidence,
-                payload.front_gate,
-                payload.back_confidence,
-                payload.back_gate,
-                1 if payload.deep_search_triggered else 0,
-                payload.deep_search_reason,
-                payload.decision_reason,
-                payload.multiple,
-                1 if payload.is_additional else 0,
-            ),
-        )
-        saved_id = conn.execute("SELECT last_insert_rowid() AS id").fetchone()["id"]
+        saved_id = _upsert_saved_scheme(conn, payload)
         conn.commit()
         row = conn.execute("SELECT * FROM saved_schemes WHERE id = ?", (saved_id,)).fetchone()
     return _row_to_saved_scheme(row)
+
+
+def _upsert_saved_scheme(conn, payload: SavedSchemeCreateRequest) -> int:
+    scheme = payload.scheme
+    front_numbers = _serialize_numbers(scheme.front_numbers)
+    back_numbers = _serialize_numbers(scheme.back_numbers)
+    existing = conn.execute(
+        """
+        SELECT id FROM saved_schemes
+        WHERE target_issue = ? AND front_numbers = ? AND back_numbers = ?
+        """,
+        (payload.target_issue, front_numbers, back_numbers),
+    ).fetchone()
+    if existing:
+        conn.execute(
+            """
+            UPDATE saved_schemes
+            SET label = ?, rationale = ?, multiple = ?, is_additional = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """,
+            (scheme.label, scheme.rationale, payload.multiple, 1 if payload.is_additional else 0, existing["id"]),
+        )
+        return int(existing["id"])
+
+    conn.execute(
+        """
+        INSERT INTO saved_schemes (
+            target_issue, seed_mode, seed_value, moving_line, ai_engine, label,
+            confidence, strategy, front_numbers, back_numbers, rationale,
+            tuning_profile, issue_confidence, calibrated_confidence, applied_threshold,
+            should_observe, front_confidence, front_gate, back_confidence, back_gate,
+            deep_search_triggered, deep_search_reason, decision_reason, multiple, is_additional, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        """,
+        (
+            payload.target_issue,
+            payload.seed_mode,
+            payload.seed_value,
+            payload.moving_line,
+            payload.ai_engine,
+            scheme.label,
+            scheme.confidence,
+            scheme.strategy,
+            front_numbers,
+            back_numbers,
+            scheme.rationale,
+            payload.tuning_profile,
+            payload.issue_confidence,
+            payload.calibrated_confidence,
+            payload.applied_threshold,
+            1 if payload.should_observe else 0,
+            payload.front_confidence,
+            payload.front_gate,
+            payload.back_confidence,
+            payload.back_gate,
+            1 if payload.deep_search_triggered else 0,
+            payload.deep_search_reason,
+            payload.decision_reason,
+            payload.multiple,
+            1 if payload.is_additional else 0,
+        ),
+    )
+    return int(conn.execute("SELECT last_insert_rowid() AS id").fetchone()["id"])
+
+
+def save_schemes(payloads: list[SavedSchemeCreateRequest]) -> list[SavedScheme]:
+    if not payloads:
+        return []
+    with get_connection() as conn:
+        saved_ids = [_upsert_saved_scheme(conn, payload) for payload in payloads]
+        conn.commit()
+        placeholders = ",".join("?" for _ in saved_ids)
+        rows = conn.execute(f"SELECT * FROM saved_schemes WHERE id IN ({placeholders})", saved_ids).fetchall()
+    row_by_id = {int(row["id"]): row for row in rows}
+    ordered_rows = [row_by_id[saved_id] for saved_id in saved_ids if saved_id in row_by_id]
+    draws_map = get_effective_draws_by_issues([str(row["target_issue"]) for row in ordered_rows])
+    return [_row_to_saved_scheme(row, draws_map=draws_map) for row in ordered_rows]
 
 
 def save_manual_scheme(payload: "SavedSchemeManualCreateRequest") -> SavedScheme:
@@ -643,8 +712,23 @@ def delete_saved_scheme(saved_id: int) -> bool:
     return row.rowcount > 0
 
 
-def _row_to_saved_scheme(row, manual_issue_ticket_amounts: dict[str, float] | None = None) -> SavedScheme:
-    draw, result_source = get_effective_draw_by_issue(row["target_issue"])
+def delete_saved_schemes_by_issue(issue: str) -> int:
+    with get_connection() as conn:
+        row = conn.execute("DELETE FROM saved_schemes WHERE target_issue = ?", (issue,))
+        conn.commit()
+    return int(row.rowcount)
+
+
+def _row_to_saved_scheme(
+    row,
+    manual_issue_ticket_amounts: dict[str, float] | None = None,
+    draws_map: dict[str, tuple[LottoDraw | None, str]] | None = None,
+) -> SavedScheme:
+    issue_key = str(row["target_issue"])
+    if draws_map is not None and issue_key in draws_map:
+        draw, result_source = draws_map[issue_key]
+    else:
+        draw, result_source = get_effective_draw_by_issue(row["target_issue"])
     front_numbers = _deserialize_numbers(row["front_numbers"])
     back_numbers = _deserialize_numbers(row["back_numbers"])
     multiple = int(row["multiple"]) if row["multiple"] is not None else 1
@@ -755,7 +839,11 @@ def list_saved_schemes(limit: int = 100) -> SavedSchemeListResponse:
             (limit,),
         ).fetchall()
     manual_issue_ticket_amounts = _build_manual_issue_ticket_amounts(rows)
-    items = [_row_to_saved_scheme(row, manual_issue_ticket_amounts) for row in rows]
+    draws_map = get_effective_draws_by_issues([str(row["target_issue"]) for row in rows])
+    items = [
+        _row_to_saved_scheme(row, manual_issue_ticket_amounts, draws_map)
+        for row in rows
+    ]
     return SavedSchemeListResponse(items=items, stats=build_saved_scheme_stats(items))
 
 

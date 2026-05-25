@@ -20,6 +20,10 @@ venv/
 backend/_bt_raw_diag.json
 backend/_bt_result.json
 backend/_bt_payload.json
+backend/reports/*.pid
+backend/reports/*.stdout.txt
+backend/reports/*.stderr.txt
+backend/reports/*.progress.json
 
 # Node.js / Frontend build
 node_modules/

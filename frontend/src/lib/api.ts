@@ -1,4 +1,4 @@
-import type { AIConfig, AIModelItem, AIReplayMode, BacktestJobListResponse, BacktestJobResponse, BacktestResponse, DivinationResponse, FinalScheme, LottoDraw, ManualDrawResult, SavedScheme, SavedSchemeListResponse, StrategyMode, SyncStatus } from "./types";
+import type { AIConfig, AIModelItem, AIReplayMode, BacktestJobListResponse, BacktestJobResponse, BacktestResponse, BacktestStrategyMode, DivinationResponse, FinalScheme, LottoDraw, ManualDrawResult, SavedScheme, SavedSchemeListResponse, StrategyMode, SyncStatus } from "./types";
 import { normalizeDeep } from "./text";
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "/api";
@@ -156,8 +156,70 @@ export function saveGeneratedScheme(input: {
   });
 }
 
+function buildGeneratedSchemePayload(input: {
+  targetIssue: string;
+  seedMode: DivinationResponse["seed_mode"];
+  seedValue: string;
+  movingLine: number;
+  aiEngine: string;
+  scheme: FinalScheme;
+  tuningProfile?: string | null;
+  issueConfidence?: number | null;
+  calibratedConfidence?: number | null;
+  appliedThreshold?: number | null;
+  shouldObserve?: boolean;
+  frontConfidence?: number | null;
+  frontGate?: number | null;
+  backConfidence?: number | null;
+  backGate?: number | null;
+  deepSearchTriggered?: boolean;
+  deepSearchReason?: string | null;
+  decisionReason?: string | null;
+  multiple?: number;
+  isAdditional?: boolean;
+}) {
+  return {
+    target_issue: input.targetIssue,
+    seed_mode: input.seedMode,
+    seed_value: input.seedValue,
+    moving_line: input.movingLine,
+    ai_engine: input.aiEngine,
+    scheme: input.scheme,
+    tuning_profile: input.tuningProfile,
+    issue_confidence: input.issueConfidence,
+    calibrated_confidence: input.calibratedConfidence,
+    applied_threshold: input.appliedThreshold,
+    should_observe: input.shouldObserve ?? false,
+    front_confidence: input.frontConfidence,
+    front_gate: input.frontGate,
+    back_confidence: input.backConfidence,
+    back_gate: input.backGate,
+    deep_search_triggered: input.deepSearchTriggered ?? false,
+    deep_search_reason: input.deepSearchReason,
+    decision_reason: input.decisionReason,
+    multiple: input.multiple ?? 1,
+    is_additional: input.isAdditional ?? false,
+  };
+}
+
+export function saveGeneratedSchemes(
+  inputs: Array<Parameters<typeof buildGeneratedSchemePayload>[0]>,
+) {
+  return request<SavedScheme[]>("/saved-schemes/batch", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      items: inputs.map(buildGeneratedSchemePayload),
+    }),
+  });
+}
+
 export function deleteSavedScheme(savedId: number) {
   return request<void>(`/saved-schemes/${savedId}`, { method: "DELETE" });
+}
+
+export function deleteSavedIssue(issue: string) {
+  return request<{ deleted: number }>(`/saved-schemes/issues/${encodeURIComponent(issue)}`, { method: "DELETE" });
 }
 
 export interface ManualScheme {
@@ -214,35 +276,38 @@ export function deleteManualDrawResult(issue: string) {
 export function runBacktest(
   recentIssues: number,
   schemeCount: number,
-  strategyMode: StrategyMode = "multi_cover",
+  strategyMode: BacktestStrategyMode = "multi_cover",
   ticketMode: "basic" | "additional" = "basic",
   aiReplayMode: AIReplayMode = "local_only",
   compareModes = false,
   aiConfig?: AIConfig,
   tuningProfileOverride?: string | null,
+  multiple = 1,
 ) {
   return request<BacktestResponse>("/backtest", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(buildBacktestRequest(recentIssues, schemeCount, strategyMode, ticketMode, aiReplayMode, compareModes, aiConfig, tuningProfileOverride)),
+    body: JSON.stringify(buildBacktestRequest(recentIssues, schemeCount, strategyMode, ticketMode, aiReplayMode, compareModes, aiConfig, tuningProfileOverride, multiple)),
   });
 }
 
 function buildBacktestRequest(
   recentIssues: number,
   schemeCount: number,
-  strategyMode: StrategyMode = "multi_cover",
+  strategyMode: BacktestStrategyMode = "multi_cover",
   ticketMode: "basic" | "additional" = "basic",
   aiReplayMode: AIReplayMode = "local_only",
   compareModes = false,
   aiConfig?: AIConfig,
   tuningProfileOverride?: string | null,
+  multiple = 1,
 ) {
   const aiConfigPayload = buildAIConfigPayload(aiConfig);
   const effectiveAIReplayMode = aiReplayMode === "external_rerank" && aiConfigPayload ? aiReplayMode : "local_only";
   return {
     recent_issues: recentIssues,
     scheme_count: schemeCount,
+    multiple: Math.max(1, Math.min(99, Math.round(multiple || 1))),
     strategy_mode: strategyMode,
     ticket_mode: ticketMode,
     ai_replay_mode: effectiveAIReplayMode,
@@ -259,34 +324,36 @@ function buildBacktestRequest(
 export function createBacktestJob(
   recentIssues: number,
   schemeCount: number,
-  strategyMode: StrategyMode = "multi_cover",
+  strategyMode: BacktestStrategyMode = "multi_cover",
   ticketMode: "basic" | "additional" = "basic",
   aiReplayMode: AIReplayMode = "local_only",
   compareModes = false,
   aiConfig?: AIConfig,
   tuningProfileOverride?: string | null,
+  multiple = 1,
 ) {
   return request<BacktestJobResponse>("/backtest/jobs", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(buildBacktestRequest(recentIssues, schemeCount, strategyMode, ticketMode, aiReplayMode, compareModes, aiConfig, tuningProfileOverride)),
+    body: JSON.stringify(buildBacktestRequest(recentIssues, schemeCount, strategyMode, ticketMode, aiReplayMode, compareModes, aiConfig, tuningProfileOverride, multiple)),
   });
 }
 
 export function runBacktestNow(
   recentIssues: number,
   schemeCount: number,
-  strategyMode: StrategyMode = "multi_cover",
+  strategyMode: BacktestStrategyMode = "multi_cover",
   ticketMode: "basic" | "additional" = "basic",
   aiReplayMode: AIReplayMode = "local_only",
   compareModes = false,
   aiConfig?: AIConfig,
   tuningProfileOverride?: string | null,
+  multiple = 1,
 ) {
   return request<BacktestResponse>("/backtest", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(buildBacktestRequest(recentIssues, schemeCount, strategyMode, ticketMode, aiReplayMode, compareModes, aiConfig, tuningProfileOverride)),
+    body: JSON.stringify(buildBacktestRequest(recentIssues, schemeCount, strategyMode, ticketMode, aiReplayMode, compareModes, aiConfig, tuningProfileOverride, multiple)),
   });
 }
 

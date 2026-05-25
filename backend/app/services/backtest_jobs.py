@@ -132,6 +132,7 @@ def _run_job(job_id: str) -> None:
             compare_modes=job.payload.compare_modes,
             ai_config=job.payload.ai_config,
             tuning_profile_override=job.payload.tuning_profile_override,
+            multiple=job.payload.multiple,
             progress_callback=lambda **kwargs: _update_progress(job_id, **kwargs),
             cancel_check=lambda: _cancel_check(job_id),
         )

@@ -1,9 +1,9 @@
 import type {
   AIReplayMode,
+  BacktestStrategyMode,
   BacktestJobResponse,
   BacktestPrizeLevelSummary,
   BacktestResponse,
-  StrategyMode,
   TicketMode,
 } from "../lib/types";
 
@@ -15,16 +15,18 @@ interface BacktestPanelProps {
   error: string | null;
   recentIssues: number;
   schemeCount: number;
-  strategyMode: StrategyMode;
+  strategyMode: BacktestStrategyMode;
   ticketMode: TicketMode;
   aiReplayMode: AIReplayMode;
   compareModes: boolean;
+  multiple: number;
   onRecentIssuesChange: (value: number) => void;
   onSchemeCountChange: (value: number) => void;
-  onStrategyModeChange: (value: StrategyMode) => void;
+  onStrategyModeChange: (value: BacktestStrategyMode) => void;
   onTicketModeChange: (value: TicketMode) => void;
   onAIReplayModeChange: (value: AIReplayMode) => void;
   onCompareModesChange: (value: boolean) => void;
+  onMultipleChange: (value: number) => void;
   onRun: (tuningProfileOverride?: string | null) => void;
   onCancelJob: () => void;
   onOpenJob: (job: BacktestJobResponse) => void;
@@ -33,7 +35,8 @@ interface BacktestPanelProps {
 
 const PRIZE_LEVEL_ORDER = ["一等奖", "二等奖", "三等奖", "四等奖", "五等奖", "六等奖", "七等奖"];
 
-function modeLabel(mode: StrategyMode) {
+function modeLabel(mode: BacktestStrategyMode) {
+  if (mode === "smart_balance") return "智能平衡";
   return mode === "single_hit" ? "单注优先" : "多注覆盖";
 }
 
@@ -139,12 +142,14 @@ export function BacktestPanel({
   ticketMode,
   aiReplayMode,
   compareModes,
+  multiple,
   onRecentIssuesChange,
   onSchemeCountChange,
   onStrategyModeChange,
   onTicketModeChange,
   onAIReplayModeChange,
   onCompareModesChange,
+  onMultipleChange,
   onRun,
   onCancelJob,
   onOpenJob,
@@ -153,6 +158,9 @@ export function BacktestPanel({
   const modeComparison = result?.mode_comparison ?? [];
   const prizeLevelBreakdown = sortPrizeLevels(result?.prize_level_breakdown ?? []);
   const netProfit = result?.net_profit ?? 0;
+  const unitPrice = ticketMode === "additional" ? 3 : 2;
+  const costPerIssue = unitPrice * schemeCount * multiple;
+  const estimatedTotalCost = costPerIssue * recentIssues;
 
   return (
     <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_16px_45px_rgba(15,23,42,0.06)]">
@@ -233,129 +241,190 @@ export function BacktestPanel({
       <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(320px,0.78fr)_minmax(0,1.22fr)]">
         <div className="min-w-0 space-y-4 xl:sticky xl:top-4 xl:self-start">
           <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
-            <p className="text-sm font-medium text-slate-900">回测控制区</p>
-            <div className="mt-4 grid gap-3 xl:grid-cols-1 2xl:grid-cols-3">
-              <label className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-4">
-                <span className="text-xs text-slate-500">回测期数</span>
-                <input
-                  type="number"
-                  min={5}
-                  value={recentIssues}
-                  onChange={(event) => onRecentIssuesChange(Math.max(5, Number(event.target.value) || 5))}
-                  className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none"
-                />
-              </label>
-              <label className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-4">
-                <span className="text-xs text-slate-500">每期方案组数</span>
-                <input
-                  type="number"
-                  min={1}
-                  value={schemeCount}
-                  onChange={(event) => onSchemeCountChange(Math.max(1, Number(event.target.value) || 1))}
-                  className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none"
-                />
-              </label>
-              <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-4">
-                <span className="text-xs text-slate-500">投注类型</span>
-                <div className="grid grid-cols-2 gap-2">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium text-slate-900">回测控制区</p>
+                <p className="mt-1 text-xs text-slate-500">把范围、投注、策略和引擎拆开设置，读起来更清楚。</p>
+              </div>
+              <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] text-slate-500">
+                投注倍数可自由填写
+              </span>
+            </div>
+
+            <div className="mt-4 grid gap-3">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="grid gap-1.5 rounded-2xl border border-slate-200 bg-white px-3 py-3">
+                  <span className="text-[11px] text-slate-500">回测期数</span>
+                  <input
+                    type="number"
+                    min={5}
+                    value={recentIssues}
+                    onChange={(event) => onRecentIssuesChange(Math.max(5, Number(event.target.value) || 5))}
+                    className="h-10 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-900 outline-none focus:border-cyan-300"
+                  />
+                </label>
+                <label className="grid gap-1.5 rounded-2xl border border-slate-200 bg-white px-3 py-3">
+                  <span className="text-[11px] text-slate-500">每期方案组数</span>
+                  <input
+                    type="number"
+                    min={1}
+                    value={schemeCount}
+                    onChange={(event) => onSchemeCountChange(Math.max(1, Number(event.target.value) || 1))}
+                    className="h-10 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-900 outline-none focus:border-cyan-300"
+                  />
+                </label>
+              </div>
+
+              <div className="grid gap-3 xl:grid-cols-2">
+                <div className="rounded-2xl border border-cyan-200 bg-white px-4 py-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-[11px] font-medium text-cyan-700">投注类型</p>
+                    <span className="text-[11px] text-slate-400">倍数可直接填写</span>
+                  </div>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_132px]">
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { value: "basic" as const, label: "基本", description: "2 元/注" },
+                        { value: "additional" as const, label: "追加", description: "3 元/注" },
+                      ].map((mode) => (
+                        <button
+                          key={mode.value}
+                          onClick={() => onTicketModeChange(mode.value)}
+                          className={`rounded-xl border px-3 py-2 text-left transition ${
+                            ticketMode === mode.value
+                              ? "border-cyan-300 bg-cyan-50 text-cyan-800"
+                              : "border-slate-200 bg-slate-50 text-slate-700"
+                          }`}
+                        >
+                          <p className="text-sm font-medium">{mode.label}</p>
+                          <p className={`mt-0.5 text-[11px] ${ticketMode === mode.value ? "text-cyan-700" : "text-slate-500"}`}>
+                            {mode.description}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                    <label className="grid gap-1.5 rounded-xl border border-cyan-200 bg-cyan-50/70 px-3 py-2">
+                      <span className="text-[11px] font-medium text-cyan-700">投注倍数</span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={99}
+                        value={multiple}
+                        onChange={(event) =>
+                          onMultipleChange(Math.max(1, Math.min(99, Math.round(Number(event.target.value) || 1))))
+                        }
+                        className="h-9 rounded-lg border border-cyan-200 bg-white px-3 text-sm font-semibold text-cyan-800 outline-none focus:border-cyan-400"
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4">
+                  <p className="text-[11px] text-slate-500">回放引擎</p>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    {[
+                      { value: "local_only" as const, label: "仅本地", description: "只跑确定性本地链路" },
+                      {
+                        value: "external_rerank" as const,
+                        label: "AI 重排",
+                        description: aiEnabled ? "逐期调用外部 AI" : "需先完成 AI 配置",
+                      },
+                    ].map((mode) => {
+                      const disabled = mode.value === "external_rerank" && !aiEnabled;
+                      return (
+                        <button
+                          key={mode.value}
+                          onClick={() => !disabled && onAIReplayModeChange(mode.value)}
+                          disabled={disabled}
+                          className={`rounded-xl border px-3 py-2 text-left transition ${
+                            aiReplayMode === mode.value
+                              ? "border-violet-300 bg-violet-50 text-violet-800"
+                              : disabled
+                                ? "border-slate-200 bg-slate-50 text-slate-400"
+                                : "border-slate-200 bg-slate-50 text-slate-700"
+                          }`}
+                        >
+                          <p className="text-sm font-medium">{mode.label}</p>
+                          <p
+                            className={`mt-0.5 text-[11px] ${
+                              aiReplayMode === mode.value
+                                ? "text-violet-700"
+                                : disabled
+                                  ? "text-slate-400"
+                                  : "text-slate-500"
+                            }`}
+                          >
+                            {mode.description}
+                          </p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-[11px] text-slate-500">回测策略</p>
+                  <span className="text-[11px] text-slate-400">逐期按当前推演逻辑重跑</span>
+                </div>
+                <div className="mt-2 grid gap-2 sm:grid-cols-3">
                   {[
-                    { value: "basic" as const, label: "基本", description: "2 元/注" },
-                    { value: "additional" as const, label: "追加", description: "3 元/注" },
+                    { value: "multi_cover" as const, label: "多注覆盖", description: "提升多注联合命中" },
+                    { value: "single_hit" as const, label: "单注优先", description: "集中高分号码" },
+                    { value: "smart_balance" as const, label: "智能平衡", description: "60/420双窗口" },
                   ].map((mode) => (
                     <button
                       key={mode.value}
-                      onClick={() => onTicketModeChange(mode.value)}
+                      onClick={() => onStrategyModeChange(mode.value)}
                       className={`rounded-xl border px-3 py-2 text-left transition ${
-                        ticketMode === mode.value
+                        strategyMode === mode.value
                           ? "border-cyan-300 bg-cyan-50 text-cyan-800"
                           : "border-slate-200 bg-slate-50 text-slate-700"
                       }`}
                     >
                       <p className="text-sm font-medium">{mode.label}</p>
-                      <p className={`mt-1 text-xs ${ticketMode === mode.value ? "text-cyan-700" : "text-slate-500"}`}>
+                      <p className={`mt-0.5 text-[11px] leading-5 ${strategyMode === mode.value ? "text-cyan-700" : "text-slate-500"}`}>
                         {mode.description}
                       </p>
                     </button>
                   ))}
                 </div>
+                <label className="mt-3 flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                  <input
+                    type="checkbox"
+                    checked={strategyMode === "smart_balance" ? false : compareModes}
+                    disabled={strategyMode === "smart_balance"}
+                    onChange={(event) => onCompareModesChange(event.target.checked)}
+                    className="h-4 w-4 rounded border-slate-300 text-cyan-600"
+                  />
+                  <div>
+                    <p className="text-xs font-medium text-slate-900">同时对比两种模式</p>
+                    <p className="mt-0.5 text-[11px] text-slate-500">额外返回另一种模式的汇总数据</p>
+                  </div>
+                </label>
               </div>
-              <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-4">
-                <span className="text-xs text-slate-500">回放引擎</span>
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { value: "local_only" as const, label: "仅本地", description: "只跑确定性本地链路" },
-                    {
-                      value: "external_rerank" as const,
-                      label: "AI 重排",
-                      description: aiEnabled ? "逐期调用外部 AI 微调组合" : "需先完成 AI 配置",
-                    },
-                  ].map((mode) => {
-                    const disabled = mode.value === "external_rerank" && !aiEnabled;
-                    return (
-                      <button
-                        key={mode.value}
-                        onClick={() => !disabled && onAIReplayModeChange(mode.value)}
-                        disabled={disabled}
-                        className={`rounded-xl border px-3 py-2 text-left transition ${
-                          aiReplayMode === mode.value
-                            ? "border-violet-300 bg-violet-50 text-violet-800"
-                            : disabled
-                              ? "border-slate-200 bg-slate-50 text-slate-400"
-                              : "border-slate-200 bg-slate-50 text-slate-700"
-                        }`}
-                      >
-                        <p className="text-sm font-medium">{mode.label}</p>
-                        <p
-                          className={`mt-1 text-xs ${
-                            aiReplayMode === mode.value
-                              ? "text-violet-700"
-                              : disabled
-                                ? "text-slate-400"
-                                : "text-slate-500"
-                          }`}
-                        >
-                          {mode.description}
-                        </p>
-                      </button>
-                    );
-                  })}
+
+              <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div>
+                    <p className="text-[11px] text-slate-500">单注价格</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900">{unitPrice} 元</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-slate-500">单期预计成本</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900">{fixedAmount(costPerIssue)} 元</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-slate-500">本次预计总成本</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900">{fixedAmount(estimatedTotalCost)} 元</p>
+                  </div>
                 </div>
+                <p className="mt-3 text-[11px] leading-5 text-slate-500">
+                  成本 = 回测期数 × 每期组数 × 单注价格 × 倍数。期数越多耗时越久，超过 200 期建议分批运行。
+                </p>
               </div>
             </div>
-            <p className="mt-3 text-xs text-slate-500">期数越多耗时越久，超过 200 期时建议分批运行，便于观察不同区间表现。</p>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2">
-              {[
-                { value: "multi_cover" as const, label: "多注覆盖", description: "优先提升多注联合命中" },
-                { value: "single_hit" as const, label: "单注优先", description: "优先集中高分号码" },
-              ].map((mode) => (
-                <button
-                  key={mode.value}
-                  onClick={() => onStrategyModeChange(mode.value)}
-                  className={`rounded-2xl border px-4 py-3 text-left transition ${
-                    strategyMode === mode.value
-                      ? "border-cyan-300 bg-cyan-50 text-cyan-800"
-                      : "border-slate-200 bg-white text-slate-700"
-                  }`}
-                >
-                  <p className="text-sm font-medium">{mode.label}</p>
-                  <p className={`mt-1 text-xs leading-5 ${strategyMode === mode.value ? "text-cyan-700" : "text-slate-500"}`}>
-                    {mode.description}
-                  </p>
-                </button>
-              ))}
-            </div>
-            <label className="mt-3 flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3">
-              <input
-                type="checkbox"
-                checked={compareModes}
-                onChange={(event) => onCompareModesChange(event.target.checked)}
-                className="h-4 w-4 rounded border-slate-300 text-cyan-600"
-              />
-              <div>
-                <p className="text-sm font-medium text-slate-900">同时对比两种模式</p>
-                <p className="mt-1 text-xs text-slate-500">保留当前模式指标，额外返回另一种模式的汇总数据</p>
-              </div>
-            </label>
             {jobs.length > 0 ? (
               <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-4">
                 <div className="flex items-center justify-between gap-3">

@@ -69,6 +69,7 @@ export interface FinalScheme {
 }
 
 export type StrategyMode = "multi_cover" | "single_hit";
+export type BacktestStrategyMode = StrategyMode | "smart_balance";
 export type TicketMode = "basic" | "additional";
 export type AIReplayMode = "local_only" | "external_rerank";
 
@@ -460,7 +461,7 @@ export interface BacktestTuningSummary {
 }
 
 export interface BacktestModeSummary {
-  strategy_mode: StrategyMode;
+  strategy_mode: BacktestStrategyMode;
   total_issues: number;
   total_generated_schemes: number;
   won_schemes: number;
@@ -494,7 +495,7 @@ export interface BacktestThresholdScanItem {
 }
 
 export interface BacktestIssueModeComparison {
-  strategy_mode: StrategyMode;
+  strategy_mode: BacktestStrategyMode;
   won_count: number;
   best_prize_level?: string | null;
   best_prize_amount?: number | null;
@@ -516,7 +517,7 @@ export interface BacktestResponse {
   skipped_issues?: number;
   confidence_threshold?: number;
   scheme_count: number;
-  strategy_mode: StrategyMode;
+  strategy_mode: BacktestStrategyMode;
   ticket_mode?: TicketMode;
   ai_replay_mode?: AIReplayMode;
   count_policy?: string | null;
@@ -556,7 +557,7 @@ export interface BacktestJobResponse {
   processed_issues: number;
   total_issues: number;
   scheme_count: number;
-  strategy_mode: StrategyMode;
+  strategy_mode: BacktestStrategyMode;
   ticket_mode: TicketMode;
   ai_replay_mode?: AIReplayMode;
   created_at: string;

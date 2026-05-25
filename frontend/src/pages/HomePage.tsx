@@ -14,9 +14,9 @@ import { DivinationAnimator } from "../components/DivinationAnimator";
 import { HistoryTable } from "../components/HistoryTable";
 import { RecommendationPanel } from "../components/RecommendationPanel";
 import { SavedSchemePanel } from "../components/SavedSchemePanel";
-import { cancelBacktestJob, createBacktestJob, deleteManualDrawResult, deleteSavedScheme, fetchBacktestJob, fetchBacktestJobs, fetchHistory, fetchSavedSchemes, fetchSyncStatus, isAIConfigReady, runBacktestNow, runSync, saveGeneratedScheme, saveManualDrawResult, saveManualScheme, startDivination, type ManualDrawResultInput, type ManualScheme } from "../lib/api";
+import { cancelBacktestJob, createBacktestJob, deleteManualDrawResult, deleteSavedIssue, deleteSavedScheme, fetchBacktestJob, fetchBacktestJobs, fetchHistory, fetchSavedSchemes, fetchSyncStatus, isAIConfigReady, runBacktestNow, runSync, saveGeneratedScheme, saveGeneratedSchemes, saveManualDrawResult, saveManualScheme, startDivination, type ManualDrawResultInput, type ManualScheme } from "../lib/api";
 import { normalizeDeep } from "../lib/text";
-import type { AIConfig, AIReplayMode, BacktestJobResponse, BacktestResponse, DivinationResponse, FinalScheme, LottoDraw, SavedScheme, SavedSchemeStats, StrategyMode, SyncStatus, TicketMode } from "../lib/types";
+import type { AIConfig, AIReplayMode, BacktestJobResponse, BacktestResponse, BacktestStrategyMode, DivinationResponse, FinalScheme, LottoDraw, SavedScheme, SavedSchemeStats, StrategyMode, SyncStatus, TicketMode } from "../lib/types";
 
 const STORAGE_KEY = "dlt-ai-last-result-v4";
 const COUNT_KEY = "dlt-ai-last-count";
@@ -282,6 +282,130 @@ class BacktestPanelErrorBoundary extends Component<{ children: ReactNode }, { ha
   }
 }
 
+function normalizeMultiple(value?: number) {
+  return Math.max(1, Math.min(99, Math.round(Number(value) || 1)));
+}
+
+function sortedNumbers(numbers: number[]) {
+  return [...numbers].sort((left, right) => left - right);
+}
+
+function savedSchemeKeyFromParts(issue: string, frontNumbers: number[], backNumbers: number[]) {
+  return `${issue}|${sortedNumbers(frontNumbers).join(",")}|${sortedNumbers(backNumbers).join(",")}`;
+}
+
+function savedSchemeKey(item: Pick<SavedScheme, "target_issue" | "front_numbers" | "back_numbers">) {
+  return savedSchemeKeyFromParts(item.target_issue, item.front_numbers, item.back_numbers);
+}
+
+function buildPendingEvaluation(multiple: number, isAdditional: boolean): SavedScheme["evaluation"] {
+  return {
+    status: "pending",
+    result_source: "none",
+    multiple,
+    is_additional: isAdditional,
+    cost_amount: (isAdditional ? 3 : 2) * multiple,
+    front_match_count: 0,
+    back_match_count: 0,
+    prize_level: null,
+    base_prize_amount: null,
+    additional_prize_amount: null,
+    bonus_prize_amount: null,
+    prize_amount: null,
+    prize_amount_text: null,
+    promotion_active: false,
+    promotion_eligible: false,
+    promotion_label: null,
+    promotion_min_ticket_amount: null,
+    draw_issue: null,
+    draw_date: null,
+    winning_front_numbers: [],
+    winning_back_numbers: [],
+    evaluated_at: null,
+  };
+}
+
+function buildOptimisticManualSavedScheme(id: number, input: ManualScheme): SavedScheme {
+  const targetIssue = input.targetIssue.trim();
+  const now = new Date().toISOString();
+  const multiple = normalizeMultiple(input.multiple);
+  const isAdditional = !!input.isAdditional;
+  return {
+    id,
+    target_issue: targetIssue,
+    seed_mode: "system_time",
+    seed_value: now,
+    moving_line: 0,
+    ai_engine: "manual",
+    label: input.label?.trim() || `手动购买 ${targetIssue}`,
+    confidence: 0,
+    strategy: "手动购买",
+    front_numbers: sortedNumbers(input.frontNumbers),
+    back_numbers: sortedNumbers(input.backNumbers),
+    rationale: input.note?.trim() || "用户自行购买，手动录入",
+    tuning_profile: null,
+    issue_confidence: null,
+    calibrated_confidence: null,
+    applied_threshold: null,
+    should_observe: false,
+    front_confidence: null,
+    front_gate: null,
+    back_confidence: null,
+    back_gate: null,
+    deep_search_triggered: false,
+    deep_search_reason: null,
+    decision_reason: null,
+    multiple,
+    is_additional: isAdditional,
+    created_at: now,
+    updated_at: now,
+    evaluation: buildPendingEvaluation(multiple, isAdditional),
+  };
+}
+
+function buildOptimisticGeneratedSavedScheme(
+  id: number,
+  result: DivinationResponse,
+  targetIssue: string,
+  scheme: FinalScheme,
+  input: { multiple: number; isAdditional: boolean },
+): SavedScheme {
+  const now = new Date().toISOString();
+  const multiple = normalizeMultiple(input.multiple);
+  const isAdditional = !!input.isAdditional;
+  return {
+    id,
+    target_issue: targetIssue,
+    seed_mode: result.seed_mode,
+    seed_value: result.seed_value,
+    moving_line: result.moving_line,
+    ai_engine: result.ai_analysis.engine,
+    label: scheme.label,
+    confidence: scheme.confidence,
+    strategy: scheme.strategy,
+    front_numbers: sortedNumbers(scheme.front_numbers),
+    back_numbers: sortedNumbers(scheme.back_numbers),
+    rationale: scheme.rationale,
+    tuning_profile: result.tuning_profile ?? null,
+    issue_confidence: result.issue_confidence ?? null,
+    calibrated_confidence: result.calibrated_confidence ?? null,
+    applied_threshold: result.applied_threshold ?? null,
+    should_observe: result.should_observe ?? false,
+    front_confidence: result.front_confidence ?? null,
+    front_gate: result.front_gate ?? null,
+    back_confidence: result.back_confidence ?? null,
+    back_gate: result.back_gate ?? null,
+    deep_search_triggered: result.deep_search_triggered ?? false,
+    deep_search_reason: result.deep_search_reason ?? null,
+    decision_reason: result.decision_reason ?? null,
+    multiple,
+    is_additional: isAdditional,
+    created_at: now,
+    updated_at: now,
+    evaluation: buildPendingEvaluation(multiple, isAdditional),
+  };
+}
+
 export function HomePage() {
   const [history, setHistory] = useState<LottoDraw[]>([]);
   const [status, setStatus] = useState<SyncStatus | null>(null);
@@ -307,16 +431,36 @@ export function HomePage() {
   const [backtestResult, setBacktestResult] = useState<BacktestResponse | null>(null);
   const [backtestIssues, setBacktestIssues] = useState(30);
   const [backtestSchemeCount, setBacktestSchemeCount] = useState(3);
-  const [backtestStrategyMode, setBacktestStrategyMode] = useState<StrategyMode>("multi_cover");
+  const [backtestStrategyMode, setBacktestStrategyMode] = useState<BacktestStrategyMode>("multi_cover");
   const [backtestTicketMode, setBacktestTicketMode] = useState<TicketMode>("basic");
   const [backtestAIReplayMode, setBacktestAIReplayMode] = useState<AIReplayMode>("local_only");
   const [backtestCompareModes, setBacktestCompareModes] = useState(true);
+  const [backtestMultiple, setBacktestMultiple] = useState(1);
   const [backtestLoading, setBacktestLoading] = useState(false);
   const [backtestJob, setBacktestJob] = useState<BacktestJobResponse | null>(null);
   const [backtestJobs, setBacktestJobs] = useState<BacktestJobResponse[]>([]);
   const [backtestError, setBacktestError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<(typeof pageTabs)[number]["key"]>("oracle");
   const backtestPollJobIdRef = useRef<string | null>(null);
+  const savedSchemesRefreshTimerRef = useRef<number | null>(null);
+  const optimisticSavedIdRef = useRef(-1);
+
+  function scheduleSavedSchemesRefresh(delay = 600) {
+    if (savedSchemesRefreshTimerRef.current != null) {
+      window.clearTimeout(savedSchemesRefreshTimerRef.current);
+    }
+    savedSchemesRefreshTimerRef.current = window.setTimeout(() => {
+      savedSchemesRefreshTimerRef.current = null;
+      fetchSavedSchemes(100)
+        .then((savedData) => {
+          setSavedSchemes(savedData.items);
+          setSavedStats(savedData.stats);
+        })
+        .catch((error) => {
+          console.error("refresh saved schemes failed", error);
+        });
+    }, delay);
+  }
 
   async function loadDashboard() {
     try {
@@ -398,6 +542,7 @@ export function HomePage() {
           ticketMode?: TicketMode;
           aiReplayMode?: AIReplayMode;
           compareModes?: boolean;
+          multiple?: number;
         };
         if (parsed.recentIssues) {
           setBacktestIssues(Math.max(5, Number(parsed.recentIssues) || 30));
@@ -405,7 +550,7 @@ export function HomePage() {
         if (parsed.schemeCount) {
           setBacktestSchemeCount(Math.max(1, Number(parsed.schemeCount) || 3));
         }
-        if (parsed.strategyMode === "multi_cover" || parsed.strategyMode === "single_hit") {
+        if (parsed.strategyMode === "multi_cover" || parsed.strategyMode === "single_hit" || parsed.strategyMode === "smart_balance") {
           setBacktestStrategyMode(parsed.strategyMode);
         }
         if (parsed.ticketMode === "basic" || parsed.ticketMode === "additional") {
@@ -417,10 +562,21 @@ export function HomePage() {
         if (typeof parsed.compareModes === "boolean") {
           setBacktestCompareModes(parsed.compareModes);
         }
+        if (typeof parsed.multiple === "number" && Number.isFinite(parsed.multiple)) {
+          setBacktestMultiple(Math.max(1, Math.min(99, Math.round(parsed.multiple))));
+        }
       } catch {
         safeStorageRemove(BACKTEST_OPTIONS_KEY);
       }
     }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (savedSchemesRefreshTimerRef.current != null) {
+        window.clearTimeout(savedSchemesRefreshTimerRef.current);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -440,9 +596,10 @@ export function HomePage() {
         ticketMode: backtestTicketMode,
         aiReplayMode: backtestAIReplayMode,
         compareModes: backtestCompareModes,
+        multiple: backtestMultiple,
       }),
     );
-  }, [backtestAIReplayMode, backtestCompareModes, backtestIssues, backtestSchemeCount, backtestStrategyMode, backtestTicketMode]);
+  }, [backtestAIReplayMode, backtestCompareModes, backtestIssues, backtestMultiple, backtestSchemeCount, backtestStrategyMode, backtestTicketMode]);
 
   // Auto-sync when entering "saved" tab if the next draw time has passed
   // and DB hasn't been refreshed since then (so saved schemes can settle).
@@ -532,16 +689,26 @@ export function HomePage() {
     if (!result || !status?.next_issue) {
       return;
     }
+    const targetIssue = status.next_issue;
     if (!scheme) {
       return;
     }
     const schemesToSave = result.final_schemes;
     const schemeLabels = schemesToSave.map((item) => item.label);
+    const optimisticItems = schemesToSave.map((currentScheme) =>
+      buildOptimisticGeneratedSavedScheme(optimisticSavedIdRef.current--, result, targetIssue, currentScheme, input),
+    );
+    const optimisticKeys = new Set(optimisticItems.map(savedSchemeKey));
     setSavingSchemeLabels((current) => Array.from(new Set([...current, ...schemeLabels])));
+    setSchemePendingSave(null);
+    setSavedSchemes((current) => [
+      ...optimisticItems,
+      ...current.filter((item) => !optimisticKeys.has(savedSchemeKey(item))),
+    ]);
     try {
-      for (const currentScheme of schemesToSave) {
-        await saveGeneratedScheme({
-          targetIssue: status.next_issue,
+      const createdItems = await saveGeneratedSchemes(
+        schemesToSave.map((currentScheme) => ({
+          targetIssue,
           seedMode: result.seed_mode,
           seedValue: result.seed_value,
           movingLine: result.moving_line,
@@ -561,48 +728,98 @@ export function HomePage() {
           decisionReason: result.decision_reason,
           multiple: input.multiple,
           isAdditional: input.isAdditional,
-        });
-      }
-      const savedData = await fetchSavedSchemes(100);
-      setSavedSchemes(savedData.items);
-      setSavedStats(savedData.stats);
-      setSchemePendingSave(null);
+        })),
+      );
+      const tempIds = new Set(optimisticItems.map((item) => item.id));
+      const createdIds = new Set(createdItems.map((item) => item.id));
+      const createdKeys = new Set(createdItems.map(savedSchemeKey));
+      setSavedSchemes((current) => {
+        return [
+          ...createdItems,
+          ...current.filter(
+            (item) => !tempIds.has(item.id) && !createdIds.has(item.id) && !createdKeys.has(savedSchemeKey(item)),
+          ),
+        ];
+      });
+      scheduleSavedSchemesRefresh();
+    } catch (error) {
+      console.error("save generated schemes failed", error);
+      const tempIds = new Set(optimisticItems.map((item) => item.id));
+      setSavedSchemes((current) => current.filter((item) => !tempIds.has(item.id)));
+      setDashboardError(`保存购买方案失败：${error instanceof Error ? error.message : "未知错误"}`);
+      scheduleSavedSchemesRefresh(50);
     } finally {
       setSavingSchemeLabels((current) => current.filter((item) => !schemeLabels.includes(item)));
     }
   }
 
   async function handleDeleteSavedScheme(savedId: number) {
-    setDeletingSavedIds((current) => [...current, savedId]);
+    setDeletingSavedIds((current) => Array.from(new Set([...current, savedId])));
+    setSavedSchemes((current) => current.filter((item) => item.id !== savedId));
     try {
       await deleteSavedScheme(savedId);
-      const savedData = await fetchSavedSchemes(100);
-      setSavedSchemes(savedData.items);
-      setSavedStats(savedData.stats);
+      scheduleSavedSchemesRefresh();
+    } catch (error) {
+      console.error("delete saved scheme failed", error);
+      scheduleSavedSchemesRefresh(50);
+      throw error;
     } finally {
-      setDeletingSavedIds((current) => current.filter((item) => item !== savedId));
+      setDeletingSavedIds((current) => current.filter((id) => id !== savedId));
     }
   }
 
-  async function handleAddManualScheme(input: ManualScheme) {
-    setManualSubmitting(true);
-    try {
-      await saveManualScheme(input);
-      const savedData = await fetchSavedSchemes(100);
-      setSavedSchemes(savedData.items);
-      setSavedStats(savedData.stats);
-    } finally {
-      setManualSubmitting(false);
+  async function handleDeleteSavedIssue(issue: string, itemIds: number[]) {
+    if (itemIds.length === 0) {
+      return;
     }
+    setDeletingSavedIds((current) => Array.from(new Set([...current, ...itemIds])));
+    setSavedSchemes((current) => current.filter((item) => item.target_issue !== issue));
+    try {
+      await deleteSavedIssue(issue);
+    } catch (error) {
+      console.error("delete saved issue failed", error);
+      scheduleSavedSchemesRefresh(50);
+      throw error;
+    } finally {
+      setDeletingSavedIds((current) => current.filter((id) => !itemIds.includes(id)));
+      scheduleSavedSchemesRefresh();
+    }
+  }
+
+  function handleAddManualScheme(input: ManualScheme) {
+    const optimisticItem = buildOptimisticManualSavedScheme(optimisticSavedIdRef.current--, input);
+    const optimisticKey = savedSchemeKey(optimisticItem);
+    setManualSubmitting(true);
+    setSavedSchemes((current) => [
+      optimisticItem,
+      ...current.filter((item) => savedSchemeKey(item) !== optimisticKey),
+    ]);
+    void saveManualScheme(input)
+      .then((created) => {
+        setSavedSchemes((current) => [
+          created,
+          ...current.filter((item) => item.id !== optimisticItem.id && item.id !== created.id && savedSchemeKey(item) !== savedSchemeKey(created)),
+        ]);
+        scheduleSavedSchemesRefresh();
+      })
+      .catch((error) => {
+        console.error("save manual scheme failed", error);
+        setSavedSchemes((current) => current.filter((item) => item.id !== optimisticItem.id));
+        setDashboardError(`保存购买号码失败：${error instanceof Error ? error.message : "未知错误"}`);
+        scheduleSavedSchemesRefresh(50);
+      })
+      .finally(() => {
+        setManualSubmitting(false);
+      });
   }
 
   async function handleSaveManualResult(input: ManualDrawResultInput) {
     setManualResultSubmittingIssue(input.issue);
     try {
       await saveManualDrawResult(input);
-      const savedData = await fetchSavedSchemes(100);
-      setSavedSchemes(savedData.items);
-      setSavedStats(savedData.stats);
+      // Manual draw result changes evaluation for every saved scheme of that issue.
+      // Refresh in background; UI stays responsive.
+      scheduleSavedSchemesRefresh();
     } finally {
       setManualResultSubmittingIssue(null);
     }
@@ -612,16 +829,15 @@ export function HomePage() {
     setManualResultSubmittingIssue(issue);
     try {
       await deleteManualDrawResult(issue);
-      const savedData = await fetchSavedSchemes(100);
-      setSavedSchemes(savedData.items);
-      setSavedStats(savedData.stats);
+      scheduleSavedSchemesRefresh();
     } finally {
       setManualResultSubmittingIssue(null);
     }
   }
 
   async function handleRunBacktest(tuningProfileOverride?: string | null) {
-    const effectiveAIReplayMode: AIReplayMode = backtestAIReplayMode === "external_rerank" && aiReady ? "external_rerank" : "local_only";
+    const effectiveAIReplayMode: AIReplayMode = backtestStrategyMode === "smart_balance" ? "local_only" : backtestAIReplayMode === "external_rerank" && aiReady ? "external_rerank" : "local_only";
+    const effectiveCompareModes = backtestStrategyMode === "smart_balance" ? false : backtestCompareModes;
     if (effectiveAIReplayMode !== backtestAIReplayMode) {
       setBacktestAIReplayMode(effectiveAIReplayMode);
     }
@@ -636,9 +852,10 @@ export function HomePage() {
           backtestStrategyMode,
           backtestTicketMode,
           effectiveAIReplayMode,
-          backtestCompareModes,
+          effectiveCompareModes,
           aiReady ? aiConfig : undefined,
           tuningProfileOverride,
+          backtestMultiple,
       );
       setBacktestJob(job);
       setBacktestJobs((current) => [job, ...current.filter((item) => item.job_id !== job.job_id)].slice(0, 12));
@@ -654,9 +871,10 @@ export function HomePage() {
             backtestStrategyMode,
             backtestTicketMode,
             effectiveAIReplayMode,
-            backtestCompareModes,
+            effectiveCompareModes,
             aiReady ? aiConfig : undefined,
             tuningProfileOverride,
+            backtestMultiple,
           );
           setBacktestResult(result);
           setBacktestLoading(false);
@@ -1040,6 +1258,7 @@ export function HomePage() {
               items={savedSchemes}
               stats={savedStats}
               onDelete={handleDeleteSavedScheme}
+              onDeleteIssue={handleDeleteSavedIssue}
               deletingIds={deletingSavedIds}
               onAddManual={handleAddManualScheme}
               manualSubmitting={manualSubmitting}
@@ -1065,6 +1284,7 @@ export function HomePage() {
                 ticketMode={backtestTicketMode}
                 aiReplayMode={backtestAIReplayMode}
                 compareModes={backtestCompareModes}
+                multiple={backtestMultiple}
                 onRecentIssuesChange={setBacktestIssues}
                 onSchemeCountChange={setBacktestSchemeCount}
                 onTicketModeChange={setBacktestTicketMode}
@@ -1072,6 +1292,7 @@ export function HomePage() {
                 onAIReplayModeChange={setBacktestAIReplayMode}
                 onStrategyModeChange={setBacktestStrategyMode}
                 onCompareModesChange={setBacktestCompareModes}
+                onMultipleChange={setBacktestMultiple}
                 onRun={handleRunBacktest}
                 onCancelJob={handleCancelBacktest}
                 onOpenJob={handleOpenBacktestJob}

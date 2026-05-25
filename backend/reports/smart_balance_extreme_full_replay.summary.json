@@ -1,0 +1,197 @@
+{
+  "generated_at": "2026-05-25T20:06:07",
+  "method": "full replay from existing full-history candidate backtest reports; selector uses only prior issues for each decision",
+  "issue_range": [
+    "07031",
+    "26056"
+  ],
+  "date_range": [
+    "2007-08-08",
+    "2026-05-23"
+  ],
+  "issues": 2844,
+  "scheme_count": 3,
+  "ticket_mode": "basic",
+  "candidate_summaries": {
+    "default_multi": {
+      "issues": 2844,
+      "generated_schemes": 8532,
+      "wins": 563,
+      "overall_win_rate": 0.065987,
+      "issue_hit_count": 535,
+      "issue_hit_rate": 0.188115,
+      "total_cost": 17064,
+      "total_prize_amount": 27319.0,
+      "net_profit": 10255.0
+    },
+    "lowtier_multi": {
+      "issues": 2844,
+      "generated_schemes": 8532,
+      "wins": 554,
+      "overall_win_rate": 0.064932,
+      "issue_hit_count": 519,
+      "issue_hit_rate": 0.182489,
+      "total_cost": 17064,
+      "total_prize_amount": 32525.0,
+      "net_profit": 15461.0
+    },
+    "candidate_multi": {
+      "issues": 2844,
+      "generated_schemes": 8532,
+      "wins": 557,
+      "overall_win_rate": 0.065284,
+      "issue_hit_count": 513,
+      "issue_hit_rate": 0.18038,
+      "total_cost": 17064,
+      "total_prize_amount": 30031.0,
+      "net_profit": 12967.0
+    },
+    "front_back_multi": {
+      "issues": 2844,
+      "generated_schemes": 8532,
+      "wins": 546,
+      "overall_win_rate": 0.063994,
+      "issue_hit_count": 434,
+      "issue_hit_rate": 0.152602,
+      "total_cost": 17064,
+      "total_prize_amount": 24694.0,
+      "net_profit": 7630.0
+    },
+    "single_hit_default": {
+      "issues": 2844,
+      "generated_schemes": 8532,
+      "wins": 584,
+      "overall_win_rate": 0.068448,
+      "issue_hit_count": 520,
+      "issue_hit_rate": 0.182841,
+      "total_cost": 17064,
+      "total_prize_amount": 31005.0,
+      "net_profit": 13941.0
+    }
+  },
+  "old_smart_balance_corrected": {
+    "params": {
+      "short_window": 60,
+      "guard_window": 480,
+      "switch_margin": 0.05,
+      "hit_weight": 0.5,
+      "win_weight": 0.0,
+      "amount_divisor": 300.0
+    },
+    "summary": {
+      "issues": 2844,
+      "generated_schemes": 8532,
+      "wins": 569,
+      "overall_win_rate": 0.06669,
+      "issue_hit_count": 525,
+      "issue_hit_rate": 0.184599,
+      "total_cost": 17064,
+      "total_prize_amount": 30850.0,
+      "net_profit": 13786.0
+    },
+    "profile_counts": {
+      "default_multi": 1456,
+      "lowtier_multi": 677,
+      "candidate_multi": 231,
+      "front_back_multi": 95,
+      "single_hit_default": 385
+    }
+  },
+  "optimized_smart_balance_extreme": {
+    "params": {
+      "short_window": 60,
+      "guard_window": 420,
+      "switch_margin": 0.02,
+      "hit_weight": 1.0,
+      "win_weight": 0.0,
+      "amount_divisor": 400.0
+    },
+    "summary": {
+      "issues": 2844,
+      "generated_schemes": 8532,
+      "wins": 600,
+      "overall_win_rate": 0.070323,
+      "issue_hit_count": 541,
+      "issue_hit_rate": 0.190225,
+      "total_cost": 17064,
+      "total_prize_amount": 34461.0,
+      "net_profit": 17397.0
+    },
+    "train_70pct": {
+      "issues": 1990,
+      "generated_schemes": 5970,
+      "wins": 413,
+      "overall_win_rate": 0.069179,
+      "issue_hit_count": 383,
+      "issue_hit_rate": 0.192462,
+      "total_cost": 11940,
+      "total_prize_amount": 12080.0,
+      "net_profit": 140.0
+    },
+    "test_30pct": {
+      "issues": 854,
+      "generated_schemes": 2562,
+      "wins": 187,
+      "overall_win_rate": 0.07299,
+      "issue_hit_count": 158,
+      "issue_hit_rate": 0.185012,
+      "total_cost": 5124,
+      "total_prize_amount": 22381.0,
+      "net_profit": 17257.0
+    },
+    "profile_counts": {
+      "default_multi": 1303,
+      "lowtier_multi": 496,
+      "candidate_multi": 330,
+      "front_back_multi": 193,
+      "single_hit_default": 522
+    }
+  },
+  "hindsight_oracle_not_deployable": {
+    "best_amount_each_issue": {
+      "issues": 2844,
+      "generated_schemes": 8532,
+      "wins": 1288,
+      "overall_win_rate": 0.150961,
+      "issue_hit_count": 1109,
+      "issue_hit_rate": 0.389944,
+      "total_cost": 17064,
+      "total_prize_amount": 72178.0,
+      "net_profit": 55114.0
+    },
+    "best_wins_each_issue": {
+      "issues": 2844,
+      "generated_schemes": 8532,
+      "wins": 1316,
+      "overall_win_rate": 0.154243,
+      "issue_hit_count": 1109,
+      "issue_hit_rate": 0.389944,
+      "total_cost": 17064,
+      "total_prize_amount": 68753.0,
+      "net_profit": 51689.0
+    }
+  },
+  "improvements": {
+    "vs_default_multi": {
+      "wins_delta": 37,
+      "overall_rate_delta": 0.004336,
+      "issue_rate_delta": 0.00211,
+      "amount_delta": 7142.0,
+      "net_delta": 7142.0
+    },
+    "vs_single_hit_default": {
+      "wins_delta": 16,
+      "overall_rate_delta": 0.001875,
+      "issue_rate_delta": 0.007384,
+      "amount_delta": 3456.0,
+      "net_delta": 3456.0
+    },
+    "vs_old_smart_balance_corrected": {
+      "wins_delta": 31,
+      "overall_rate_delta": 0.003633,
+      "issue_rate_delta": 0.005626,
+      "amount_delta": 3611.0,
+      "net_delta": 3611.0
+    }
+  }
+}

@@ -1,0 +1,89 @@
+{
+  "requested_draws": 2874,
+  "runtime_seconds": 821.8,
+  "strategy_mode": "multi_cover",
+  "scheme_count": 3,
+  "ticket_mode": "basic",
+  "actual_total_issues": 2844,
+  "requested_issues": 2874,
+  "skipped_issues": 0,
+  "total_generated_schemes": 8532,
+  "won_schemes": 554,
+  "overall_win_rate": 0.0649,
+  "issue_hit_rate": 0.1825,
+  "total_cost": 17064.0,
+  "total_prize_amount": 32525.0,
+  "net_profit": 15461.0,
+  "tuning_profile": "frequency_revert+three_pack_low_tier_cover",
+  "prize_level_breakdown": [
+    {
+      "level": "一等奖",
+      "wins": 0,
+      "scheme_rate": 0.0,
+      "issue_hits": 0,
+      "issue_rate": 0.0,
+      "total_prize_amount": 0.0,
+      "average_prize_amount": 0.0
+    },
+    {
+      "level": "二等奖",
+      "wins": 0,
+      "scheme_rate": 0.0,
+      "issue_hits": 0,
+      "issue_rate": 0.0,
+      "total_prize_amount": 0.0,
+      "average_prize_amount": 0.0
+    },
+    {
+      "level": "三等奖",
+      "wins": 1,
+      "scheme_rate": 0.0001,
+      "issue_hits": 1,
+      "issue_rate": 0.0004,
+      "total_prize_amount": 3215.0,
+      "average_prize_amount": 3215.0
+    },
+    {
+      "level": "四等奖",
+      "wins": 1,
+      "scheme_rate": 0.0001,
+      "issue_hits": 1,
+      "issue_rate": 0.0004,
+      "total_prize_amount": 3000.0,
+      "average_prize_amount": 3000.0
+    },
+    {
+      "level": "五等奖",
+      "wins": 4,
+      "scheme_rate": 0.0005,
+      "issue_hits": 4,
+      "issue_rate": 0.0014,
+      "total_prize_amount": 1500.0,
+      "average_prize_amount": 375.0
+    },
+    {
+      "level": "六等奖",
+      "wins": 48,
+      "scheme_rate": 0.0056,
+      "issue_hits": 47,
+      "issue_rate": 0.0165,
+      "total_prize_amount": 6963.0,
+      "average_prize_amount": 145.06
+    },
+    {
+      "level": "七等奖",
+      "wins": 500,
+      "scheme_rate": 0.0586,
+      "issue_hits": 471,
+      "issue_rate": 0.1656,
+      "total_prize_amount": 17847.0,
+      "average_prize_amount": 35.69
+    }
+  ],
+  "coverage_metrics": {
+    "front_pairwise_overlap_avg": 1.4386,
+    "back_pairwise_overlap_avg": 0.057,
+    "back_pair_reuse_rate": 0.0,
+    "fresh_back_number_rate": 0.9715
+  }
+}

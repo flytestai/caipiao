@@ -2195,7 +2195,7 @@ def _build_combo_based_schemes(
     search_profile: str = "full",
 ) -> list[FinalScheme]:
     weights = {**DEFAULT_COMBO_WEIGHTS, **(combo_weights or {})}
-    if strategy_mode == "multi_cover" and scheme_count >= 5 and weights.get("jackpot_front_core", 0.0) >= 0.5:
+    if strategy_mode == "multi_cover" and scheme_count >= 3 and weights.get("jackpot_front_core", 0.0) >= 0.5:
         core_schemes = _build_multi_cover_front_core_schemes(
             front_candidates,
             back_candidates,
