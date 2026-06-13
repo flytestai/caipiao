@@ -68,8 +68,8 @@ export interface FinalScheme {
   rationale: string;
 }
 
-export type StrategyMode = "multi_cover" | "single_hit";
-export type BacktestStrategyMode = StrategyMode | "smart_balance";
+export type StrategyMode = "smart_balance" | "multi_cover" | "single_hit";
+export type BacktestStrategyMode = StrategyMode;
 export type TicketMode = "basic" | "additional";
 export type AIReplayMode = "local_only" | "external_rerank";
 
@@ -142,6 +142,46 @@ export interface SyncStatus {
   next_draw_datetime: string | null;
   last_synced_at: string | null;
   source: string;
+}
+
+export interface FullHistoryCacheRebuildJob {
+  job_id: string;
+  status: "queued" | "running" | "completed" | "failed";
+  progress: number;
+  message?: string | null;
+  scheme_count: number;
+  ticket_mode: TicketMode;
+  created_at: string;
+  started_at?: string | null;
+  finished_at?: string | null;
+  error?: string | null;
+}
+
+export interface FullHistoryCacheProfileStatus {
+  profile: string;
+  mode: StrategyMode | string;
+  file_name?: string | null;
+  exists: boolean;
+  valid: boolean;
+  issue_count: number;
+  latest_issue?: string | null;
+  generated_at?: string | null;
+  reason?: string | null;
+}
+
+export interface FullHistoryCacheStatus {
+  algorithm_version: string;
+  latest_issue?: string | null;
+  total_draws: number;
+  expected_issue_count: number;
+  scheme_count: number;
+  ticket_mode: TicketMode;
+  valid: boolean;
+  stale_reasons: string[];
+  generated_at?: string | null;
+  invalidated_at?: string | null;
+  profiles: FullHistoryCacheProfileStatus[];
+  active_job?: FullHistoryCacheRebuildJob | null;
 }
 
 export interface PrizeEvaluation {

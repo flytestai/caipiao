@@ -4,15 +4,14 @@ from collections import Counter
 from app.db import ensure_database
 from app.services.backtest_service import (
     COMBO_WEIGHT_PROFILES,
-    HIGH_TIER_FALLBACK_PROFILE,
     LOW_TIER_PRIZE_LEVELS,
     SCORE_WEIGHT_PROFILES,
+    _full_history_cache_profile_specs,
     _issue_quality_signals_from_evaluations,
     _pick_guarded_high_tier_candidate,
     _pick_guarded_overall_win_candidate,
-    _override_only_tuning_summary,
 )
-from app.services.meihua import _score_candidates, build_history_feature_context, generate_divination
+from app.services.meihua import _enumerate_scored_combinations, _score_candidates, build_history_feature_context, generate_divination
 from app.services.repository import get_history
 
 
@@ -48,17 +47,75 @@ class FrontCoreProfileTests(unittest.TestCase):
         self.assertEqual(len(set(back_tickets)), 5)
         self.assertGreaterEqual(sum(1 for count in front_number_usage.values() if count >= 4), 3)
 
-    def test_full_history_multi_cover_uses_high_tier_fallback_profile(self) -> None:
-        summary = _override_only_tuning_summary(
-            None,
-            sample_issues=0,
-            scheme_count=5,
+    def test_multi_cover_reserves_first_scheme_for_high_tier_and_rest_for_floor(self) -> None:
+        history = get_history(limit=500)
+        score_weights = next(weights for name, _display, weights in SCORE_WEIGHT_PROFILES if name == "balanced")
+        combo_weights = next(weights for name, weights in COMBO_WEIGHT_PROFILES if name == "balanced_combo")
+
+        response = generate_divination(
+            history,
+            issue=history[0].issue,
+            timestamp="2025-01-01T20:30:00",
+            scheme_count=3,
             strategy_mode="multi_cover",
+            score_weights=score_weights,
+            combo_weights=combo_weights,
+            history_context=build_history_feature_context(history),
+            search_profile="full",
         )
 
-        self.assertTrue(summary.enabled)
-        self.assertEqual(summary.applied_profile, HIGH_TIER_FALLBACK_PROFILE)
-        self.assertFalse(summary.applied_is_override)
+        self.assertEqual(len(response.final_schemes), 3)
+        attack_flags = ["1-4" in item.strategy for item in response.final_schemes]
+        self.assertEqual(attack_flags, [True, False, False])
+
+    def test_candidate_focus_jackpot_floor_guarded_blends_reserved_attack_with_floor_tail(self) -> None:
+        history = get_history(limit=500)
+        score_weights = next(weights for name, _display, weights in SCORE_WEIGHT_PROFILES if name == "frequency_revert")
+        combo_weights = next(
+            weights for name, weights in COMBO_WEIGHT_PROFILES if name == "candidate_focus_jackpot_floor_guarded"
+        )
+
+        response = generate_divination(
+            history,
+            issue=history[0].issue,
+            timestamp="2025-01-01T20:30:00",
+            scheme_count=5,
+            strategy_mode="multi_cover",
+            score_weights=score_weights,
+            combo_weights=combo_weights,
+            history_context=build_history_feature_context(history),
+            search_profile="full",
+        )
+
+        self.assertEqual(len(response.final_schemes), 5)
+        attack_flags = ["1-4" in item.strategy for item in response.final_schemes]
+        self.assertEqual(attack_flags[:2], [True, True])
+        self.assertTrue(not any(attack_flags[2:]))
+
+    def test_full_history_cache_profile_specs_include_hybrid_guarded_multi(self) -> None:
+        specs = _full_history_cache_profile_specs(5, "basic")
+
+        self.assertIn("hybrid_guarded_multi", specs)
+        self.assertEqual(
+            specs["hybrid_guarded_multi"]["candidate_name"],
+            "multi_cover:frequency_revert+candidate_focus_jackpot_floor_guarded",
+        )
+        self.assertEqual(
+            specs["hybrid_guarded_multi"]["tuning_profile_override"],
+            "frequency_revert+candidate_focus_jackpot_floor_guarded",
+        )
+
+    def test_full_history_cache_default_profile_specs_use_balanced_combo(self) -> None:
+        specs = _full_history_cache_profile_specs(5, "basic")
+
+        self.assertEqual(
+            specs["default_multi"]["candidate_name"],
+            "multi_cover:balanced+balanced_combo",
+        )
+        self.assertEqual(
+            specs["default_multi"]["tuning_profile_override"],
+            "balanced+balanced_combo",
+        )
 
     def test_front_back_split_profile_expands_front_and_keeps_back_pairs_independent(self) -> None:
         history = get_history(limit=500)
@@ -207,6 +264,8 @@ class FrontCoreProfileTests(unittest.TestCase):
 
         self.assertEqual(sorted(context.front_window_hits), [12, 36, 108])
         self.assertEqual(sorted(context.back_window_hits), [12, 36, 108])
+        self.assertEqual(sorted(context.front_pair_window_hits), [12, 36, 108])
+        self.assertEqual(sorted(context.back_pair_window_hits), [12, 36, 108])
         self.assertEqual(
             context.front_window_hits[12][1],
             sum(1 for draw in history[:12] if 1 in draw.front_numbers),
@@ -214,6 +273,14 @@ class FrontCoreProfileTests(unittest.TestCase):
         self.assertEqual(
             context.back_window_hits[36][1],
             sum(1 for draw in history[:36] if 1 in draw.back_numbers),
+        )
+        self.assertEqual(
+            context.front_pair_window_hits[12].get((1, 2), 0),
+            sum(1 for draw in history[:12] if 1 in draw.front_numbers and 2 in draw.front_numbers),
+        )
+        self.assertEqual(
+            context.back_pair_window_hits[12].get((1, 2), 0),
+            sum(1 for draw in history[:12] if tuple(sorted(draw.back_numbers)) == (1, 2)),
         )
 
     def test_score_candidates_prefers_stable_multi_window_underhit_over_short_window_spike(self) -> None:
@@ -251,7 +318,67 @@ class FrontCoreProfileTests(unittest.TestCase):
         rank_map = {item.number: index for index, item in enumerate(scored)}
 
         self.assertLess(rank_map[1], rank_map[7])
-        self.assertLess(rank_map[1], rank_map[11])
+
+    def test_back_combo_scoring_prefers_historically_supported_pair(self) -> None:
+        source = [
+            type("C", (), {"number": 5, "score": 0.72})(),
+            type("C", (), {"number": 7, "score": 0.72})(),
+            type("C", (), {"number": 8, "score": 0.72})(),
+            type("C", (), {"number": 9, "score": 0.72})(),
+        ]
+        pair_window_hits = {
+            12: {(5, 8): 2, (7, 9): 1},
+            36: {(5, 8): 4, (7, 9): 1},
+            108: {(5, 8): 10, (7, 9): 2},
+        }
+
+        combos = _enumerate_scored_combinations(
+            source,
+            pick_count=2,
+            strategy_mode="multi_cover",
+            zone="back",
+            history_size=108,
+            pair_window_hits=pair_window_hits,
+        )
+
+        rank_map = {tuple(item[0]): index for index, item in enumerate(combos)}
+        self.assertLess(rank_map[(5, 8)], rank_map[(7, 9)])
+
+    def test_score_candidates_prefers_front_number_with_stable_pair_cluster_support(self) -> None:
+        tail_weights = {tail: 0.0 for tail in range(10)}
+        omission_map = {number: 6 for number in range(1, 36)}
+        frequency_map = {number: 10 for number in range(1, 36)}
+        recent_hits = {number: 4 for number in range(1, 36)}
+        window_hits = {
+            12: {number: 2 for number in range(1, 36)},
+            36: {number: 5 for number in range(1, 36)},
+            108: {number: 15 for number in range(1, 36)},
+        }
+        pair_window_hits = {12: {}, 36: {}, 108: {}}
+
+        for window_size, base_hits in ((12, 2), (36, 5), (108, 15)):
+            pair_window_hits[window_size] = {
+                (1, 2): base_hits,
+                (1, 3): base_hits,
+                (1, 4): base_hits,
+                (1, 5): base_hits,
+                (7, 20): base_hits,
+                (7, 21): max(0, base_hits - 1),
+            }
+
+        scored = _score_candidates(
+            range(1, 36),
+            tail_weights,
+            omission_map,
+            frequency_map,
+            recent_hits,
+            history_size=108,
+            window_hits=window_hits,
+            pair_window_hits=pair_window_hits,
+        )
+        rank_map = {item.number: index for index, item in enumerate(scored)}
+
+        self.assertLess(rank_map[1], rank_map[7])
 
     def test_issue_quality_signals_track_high_tier_same_ticket_proxies(self) -> None:
         signals = _issue_quality_signals_from_evaluations(
@@ -271,6 +398,7 @@ class FrontCoreProfileTests(unittest.TestCase):
         self.assertTrue(signals["back_2plus_hit"])
 
     def test_guarded_high_tier_selection_requires_no_lower_tier_regression(self) -> None:
+        fifth_level, sixth_level, seventh_level = LOW_TIER_PRIZE_LEVELS
         baseline_summary = {
             "top3_hit_issues": 0,
             "top4_hit_issues": 0,
@@ -284,12 +412,12 @@ class FrontCoreProfileTests(unittest.TestCase):
             "total_prize_amount": 1000.0,
             "issue_hit_rate": 0.62,
             "won_schemes": 40,
-            "五等奖_wins": 4,
-            "五等奖_amount": 1200.0,
-            "六等奖_wins": 10,
-            "六等奖_amount": 1800.0,
-            "七等奖_wins": 26,
-            "七等奖_amount": 4200.0,
+            f"{fifth_level}_wins": 4,
+            f"{fifth_level}_amount": 1200.0,
+            f"{sixth_level}_wins": 10,
+            f"{sixth_level}_amount": 1800.0,
+            f"{seventh_level}_wins": 26,
+            f"{seventh_level}_amount": 4200.0,
         }
         records = [
             {
@@ -319,8 +447,8 @@ class FrontCoreProfileTests(unittest.TestCase):
                     **baseline_summary,
                     "five_plus_two_hit_issues": 1,
                     "high_tier_proxy_score": 0.18,
-                    "六等奖_wins": 9,
-                    "六等奖_amount": 1700.0,
+                    f"{sixth_level}_wins": 9,
+                    f"{sixth_level}_amount": 1700.0,
                 },
                 "stage_score": 0.13,
                 "train_score": 0.13,

@@ -2,6 +2,7 @@ import { Component, type ErrorInfo, type ReactNode, useEffect, useMemo, useRef, 
 import {
   ArrowRight,
   CalendarClock,
+  ChevronDown,
   PanelsTopLeft,
   RefreshCw,
   Settings2,
@@ -14,11 +15,11 @@ import { DivinationAnimator } from "../components/DivinationAnimator";
 import { HistoryTable } from "../components/HistoryTable";
 import { RecommendationPanel } from "../components/RecommendationPanel";
 import { SavedSchemePanel } from "../components/SavedSchemePanel";
-import { cancelBacktestJob, createBacktestJob, deleteManualDrawResult, deleteSavedIssue, deleteSavedScheme, fetchBacktestJob, fetchBacktestJobs, fetchHistory, fetchSavedSchemes, fetchSyncStatus, isAIConfigReady, runBacktestNow, runSync, saveGeneratedScheme, saveGeneratedSchemes, saveManualDrawResult, saveManualScheme, startDivination, type ManualDrawResultInput, type ManualScheme } from "../lib/api";
+import { ApiError, cancelBacktestJob, createBacktestJob, deleteManualDrawResult, deleteSavedIssue, deleteSavedScheme, fetchBacktestJob, fetchBacktestJobs, fetchFullHistoryCacheJob, fetchFullHistoryCacheStatus, fetchHistory, fetchSavedSchemes, fetchSyncStatus, isAIConfigReady, rebuildFullHistoryCache, runBacktestNow, runSync, saveGeneratedScheme, saveGeneratedSchemes, saveManualDrawResult, saveManualScheme, startDivination, type ManualDrawResultInput, type ManualScheme } from "../lib/api";
 import { normalizeDeep } from "../lib/text";
-import type { AIConfig, AIReplayMode, BacktestJobResponse, BacktestResponse, BacktestStrategyMode, DivinationResponse, FinalScheme, LottoDraw, SavedScheme, SavedSchemeStats, StrategyMode, SyncStatus, TicketMode } from "../lib/types";
+import type { AIConfig, AIReplayMode, BacktestJobResponse, BacktestResponse, BacktestStrategyMode, DivinationResponse, FinalScheme, FullHistoryCacheRebuildJob, FullHistoryCacheStatus, LottoDraw, SavedScheme, SavedSchemeStats, StrategyMode, SyncStatus, TicketMode } from "../lib/types";
 
-const STORAGE_KEY = "dlt-ai-last-result-v4";
+const STORAGE_KEY = "dlt-ai-last-result-v5";
 const COUNT_KEY = "dlt-ai-last-count";
 const AI_CONFIG_KEY = "dlt-ai-config";
 const BACKTEST_OPTIONS_KEY = "dlt-backtest-options-v2";
@@ -27,6 +28,7 @@ const OBSOLETE_CACHE_KEYS = [
   "dlt-backtest-last-result-v2",
   "dlt-backtest-last-job-v1",
   "dlt-backtest-last-job-v2",
+  "dlt-ai-last-result-v4",
 ];
 
 const defaultAIConfig: AIConfig = {
@@ -83,8 +85,9 @@ function clearObsoleteCacheKeys() {
 
 const inputPresets = [3, 5, 8, 10];
 const strategyModes: Array<{ value: StrategyMode; label: string; description: string }> = [
-  { value: "multi_cover", label: "多注覆盖", description: "优先提高多注至少中一注的概率" },
   { value: "single_hit", label: "单注优先", description: "优先集中高分号码，强化单注表现" },
+  { value: "smart_balance", label: "智能平衡", description: "60/420 双窗口自动择优" },
+  { value: "multi_cover", label: "多注覆盖", description: "优先提高多注至少中一注的概率" },
 ];
 
 const pageTabs = [
@@ -252,6 +255,125 @@ function formatDateTime(value?: string | null) {
     : "--";
 }
 
+function isFullHistoryCacheJobRunning(job?: FullHistoryCacheRebuildJob | null) {
+  return job?.status === "queued" || job?.status === "running";
+}
+
+function describeFullHistoryCacheReason(reason: string) {
+  if (reason.includes("manifest is missing")) return "全历史缓存清单不存在";
+  if (reason.includes("draw data changed")) return "开奖数据已变化，需要更新缓存";
+  if (reason.includes("algorithm version")) return "缓存算法版本已变化";
+  if (reason.includes("scheme count")) return "推演组数与缓存不匹配";
+  if (reason.includes("ticket mode")) return "投注类型与缓存不匹配";
+  if (reason.includes("latest draw not cached yet")) return "有最新期开奖尚未写入缓存";
+  if (reason.includes("latest issue")) return "最新期号与缓存不匹配";
+  if (reason.includes("history draw count")) return "历史总期数与缓存不匹配";
+  if (reason.includes("runnable backtest issue count")) return "可回放期数与缓存不匹配";
+  if (reason.includes("requested issue mismatch")) return "缓存请求期数与当前历史不一致";
+  if (reason.includes("issue count mismatch")) return "缓存期数不完整，需要补齐";
+  if (reason.includes("issue count exceeds history")) return "缓存期数异常，超出当前历史";
+  if (reason.includes("report file missing")) return "候选档位报告文件缺失";
+  if (reason.includes("report file unreadable")) return "候选档位报告文件无法读取";
+  if (reason.includes("cache invalid")) return "候选档位报告已失效";
+  return reason;
+}
+
+function fullHistoryCacheReasonText(status?: FullHistoryCacheStatus | null) {
+  if (!status) {
+    return "正在检查全历史缓存";
+  }
+  if (status.valid) {
+    return `已缓存到最新期开奖 ${status.latest_issue ?? "--"}，可回放 ${status.expected_issue_count}/${status.total_draws} 期历史`;
+  }
+  const cachedLatestIssue = latestCachedFullHistoryIssue(status);
+  if (isIncrementalOnlyFullHistoryCacheStatus(status)) {
+    return `当前缓存已覆盖到第 ${cachedLatestIssue ?? "--"} 期，最新第 ${status.latest_issue ?? "--"} 期将自动补入缓存`;
+  }
+  const firstReason = status.stale_reasons[0] ?? "缓存需要更新";
+  return `全历史缓存不可用：${describeFullHistoryCacheReason(firstReason)}`;
+}
+
+function fullHistoryCacheStartBlockText(status?: FullHistoryCacheStatus | null) {
+  return `${fullHistoryCacheReasonText(status)}。请先更新全历史缓存，完成后再推算。`;
+}
+
+function latestCachedFullHistoryIssue(status?: FullHistoryCacheStatus | null) {
+  const latestIssue = status?.profiles
+    ?.map((profile) => (profile.latest_issue ? String(profile.latest_issue) : ""))
+    .filter(Boolean)
+    .sort((left, right) => Number(right) - Number(left))[0];
+  return latestIssue || null;
+}
+
+function isIncrementalOnlyFullHistoryCacheStatus(status?: FullHistoryCacheStatus | null) {
+  if (!status || status.valid || !status.stale_reasons.length) {
+    return false;
+  }
+  return status.stale_reasons.every((reason) => {
+    return (
+      reason.includes("latest draw not cached yet") ||
+      reason.includes("draw data changed after cache generation")
+    );
+  });
+}
+
+function fullHistoryCacheHeadline(status?: FullHistoryCacheStatus | null, busy = false) {
+  if (!status) {
+    return "全历史缓存检查中";
+  }
+  if (busy) {
+    return "全历史缓存更新中";
+  }
+  if (status.valid) {
+    return "全历史缓存已就绪";
+  }
+  if (isIncrementalOnlyFullHistoryCacheStatus(status)) {
+    return "全历史缓存待补最新增量";
+  }
+  return "全历史缓存待更新";
+}
+
+function fullHistoryCacheProfileLabel(profile: string) {
+  if (profile === "single_hit_default") return "单主优先";
+  if (profile === "default_multi") return "多注均衡";
+  if (profile === "lowtier_multi") return "低奖保底";
+  if (profile === "candidate_multi") return "候选强化";
+  if (profile === "hybrid_guarded_multi") return "高奖保底";
+  if (profile === "front_back_multi") return "前后区拆分";
+  return profile;
+}
+
+function shouldAutoRefreshFullHistoryCache(status?: FullHistoryCacheStatus | null) {
+  if (!status || status.valid || status.active_job) {
+    return false;
+  }
+  if (!status.stale_reasons.length) {
+    return false;
+  }
+  return status.stale_reasons.every((reason) => {
+    return (
+      reason.includes("latest draw not cached yet") ||
+      reason.includes("draw data changed after cache generation") ||
+      reason.includes("full-history cache manifest is missing") ||
+      reason.includes("report file missing") ||
+      reason.includes("report file unreadable") ||
+      reason.includes("issue count mismatch")
+    );
+  });
+}
+
+function extractFullHistoryCacheStatus(error: unknown) {
+  if (!(error instanceof ApiError) || error.status !== 409) {
+    return null;
+  }
+  const detail = error.detail;
+  if (!detail || typeof detail !== "object") {
+    return null;
+  }
+  const cacheStatus = (detail as { cache_status?: unknown }).cache_status;
+  return cacheStatus && typeof cacheStatus === "object" ? (cacheStatus as FullHistoryCacheStatus) : null;
+}
+
 class BacktestPanelErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; message: string | null }> {
   constructor(props: { children: ReactNode }) {
     super(props);
@@ -413,7 +535,7 @@ export function HomePage() {
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [schemeCount, setSchemeCount] = useState(3);
-  const [strategyMode, setStrategyMode] = useState<StrategyMode>("multi_cover");
+  const [strategyMode, setStrategyMode] = useState<StrategyMode>("smart_balance");
   const [result, setResult] = useState<DivinationResponse | null>(null);
   const [divinationError, setDivinationError] = useState<string | null>(null);
   const [lockedSchemes, setLockedSchemes] = useState<string[]>([]);
@@ -440,10 +562,23 @@ export function HomePage() {
   const [backtestJob, setBacktestJob] = useState<BacktestJobResponse | null>(null);
   const [backtestJobs, setBacktestJobs] = useState<BacktestJobResponse[]>([]);
   const [backtestError, setBacktestError] = useState<string | null>(null);
+  const [fullHistoryCacheStatus, setFullHistoryCacheStatus] = useState<FullHistoryCacheStatus | null>(null);
+  const [fullHistoryCacheJob, setFullHistoryCacheJob] = useState<FullHistoryCacheRebuildJob | null>(null);
+  const [fullHistoryCacheLoading, setFullHistoryCacheLoading] = useState(false);
+  const [fullHistoryCacheError, setFullHistoryCacheError] = useState<string | null>(null);
+  const [fullHistoryCacheDetailsOpen, setFullHistoryCacheDetailsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<(typeof pageTabs)[number]["key"]>("oracle");
   const backtestPollJobIdRef = useRef<string | null>(null);
   const savedSchemesRefreshTimerRef = useRef<number | null>(null);
   const optimisticSavedIdRef = useRef(-1);
+  const autoRefreshFullHistoryCacheKeyRef = useRef<string>("");
+  const activeFullHistoryCacheJob = fullHistoryCacheJob ?? fullHistoryCacheStatus?.active_job ?? null;
+  const fullHistoryCacheBusy = isFullHistoryCacheJobRunning(activeFullHistoryCacheJob);
+  const fullHistoryCacheReady = !!fullHistoryCacheStatus?.valid;
+  const fullHistoryCacheCachedIssue = latestCachedFullHistoryIssue(fullHistoryCacheStatus);
+  const fullHistoryCacheIncrementalOnly = isIncrementalOnlyFullHistoryCacheStatus(fullHistoryCacheStatus);
+  const fullHistoryCacheValidProfiles = fullHistoryCacheStatus?.profiles.filter((profile) => profile.valid).length ?? 0;
+  const fullHistoryCacheTotalProfiles = fullHistoryCacheStatus?.profiles.length ?? 0;
 
   function scheduleSavedSchemesRefresh(delay = 600) {
     if (savedSchemesRefreshTimerRef.current != null) {
@@ -462,6 +597,23 @@ export function HomePage() {
     }, delay);
   }
 
+  async function refreshFullHistoryCacheStatus(count = schemeCount) {
+    setFullHistoryCacheLoading(true);
+    try {
+      const cacheStatus = await fetchFullHistoryCacheStatus(count, "basic");
+      setFullHistoryCacheStatus(cacheStatus);
+      setFullHistoryCacheJob(cacheStatus.active_job ?? null);
+      setFullHistoryCacheError(null);
+      return cacheStatus;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "全历史缓存状态检查失败";
+      setFullHistoryCacheError(message);
+      throw error;
+    } finally {
+      setFullHistoryCacheLoading(false);
+    }
+  }
+
   async function loadDashboard() {
     try {
       setDashboardError(null);
@@ -469,13 +621,19 @@ export function HomePage() {
       setStatus(statusData);
       const historyData = await fetchHistory(statusData.total_draws || 5000);
       setHistory(historyData);
-      const [savedData, jobsData] = await Promise.all([
+      const [savedData, jobsData, cacheStatus] = await Promise.all([
         fetchSavedSchemes(100).catch(() => null),
         fetchBacktestJobs(12).catch(() => ({ items: [] })),
+        fetchFullHistoryCacheStatus(schemeCount, "basic").catch(() => null),
       ]);
       if (savedData) {
         setSavedSchemes(savedData.items);
         setSavedStats(savedData.stats);
+      }
+      if (cacheStatus) {
+        setFullHistoryCacheStatus(cacheStatus);
+        setFullHistoryCacheJob(cacheStatus.active_job ?? null);
+        setFullHistoryCacheError(null);
       }
       setBacktestJobs(jobsData.items);
       setBacktestJob((current) => {
@@ -515,7 +673,7 @@ export function HomePage() {
         const parsed = normalizeDeep(JSON.parse(cachedResult) as DivinationResponse);
         if (parsed.front_signal && parsed.back_signal) {
           setResult(parsed);
-          setStrategyMode(parsed.strategy_mode ?? "multi_cover");
+          setStrategyMode(parsed.strategy_mode ?? "smart_balance");
           setLockedSchemes(parsed.final_schemes[0] ? [parsed.final_schemes[0].label] : []);
           setRestored(true);
         } else {
@@ -580,6 +738,82 @@ export function HomePage() {
   }, []);
 
   useEffect(() => {
+    if (!status) {
+      return;
+    }
+    refreshFullHistoryCacheStatus(schemeCount).catch((error) => {
+      console.error("refresh full-history cache status failed", error);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schemeCount, status?.latest_issue, status?.total_draws]);
+
+  useEffect(() => {
+    if (!fullHistoryCacheStatus?.profiles.length) {
+      return;
+    }
+    if (!fullHistoryCacheStatus.valid || fullHistoryCacheBusy || fullHistoryCacheError) {
+      setFullHistoryCacheDetailsOpen(true);
+    }
+  }, [fullHistoryCacheBusy, fullHistoryCacheError, fullHistoryCacheStatus]);
+
+  useEffect(() => {
+    if (!shouldAutoRefreshFullHistoryCache(fullHistoryCacheStatus) || fullHistoryCacheBusy || fullHistoryCacheLoading) {
+      return;
+    }
+    const autoRefreshKey = [
+      schemeCount,
+      fullHistoryCacheStatus?.latest_issue ?? "",
+      ...(fullHistoryCacheStatus?.stale_reasons ?? []),
+    ].join("|");
+    if (autoRefreshFullHistoryCacheKeyRef.current === autoRefreshKey) {
+      return;
+    }
+    autoRefreshFullHistoryCacheKeyRef.current = autoRefreshKey;
+    void handleRebuildFullHistoryCache();
+  }, [
+    fullHistoryCacheBusy,
+    fullHistoryCacheLoading,
+    fullHistoryCacheStatus,
+    schemeCount,
+  ]);
+
+  useEffect(() => {
+    const jobId = activeFullHistoryCacheJob?.job_id;
+    if (!jobId || !isFullHistoryCacheJobRunning(activeFullHistoryCacheJob)) {
+      return;
+    }
+    let canceled = false;
+    const poll = async () => {
+      const latest = await fetchFullHistoryCacheJob(jobId);
+      if (canceled) {
+        return;
+      }
+      setFullHistoryCacheJob(latest);
+      if (latest.status === "completed") {
+        await refreshFullHistoryCacheStatus(schemeCount);
+      }
+      if (latest.status === "failed") {
+        setFullHistoryCacheError(latest.error ?? "全历史缓存重建失败");
+      }
+    };
+    const timer = window.setInterval(() => {
+      poll().catch((error) => {
+        console.error("poll full-history cache rebuild failed", error);
+        setFullHistoryCacheError(error instanceof Error ? error.message : "全历史缓存重建状态获取失败");
+      });
+    }, 1500);
+    poll().catch((error) => {
+      console.error("poll full-history cache rebuild failed", error);
+      setFullHistoryCacheError(error instanceof Error ? error.message : "全历史缓存重建状态获取失败");
+    });
+    return () => {
+      canceled = true;
+      window.clearInterval(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeFullHistoryCacheJob?.job_id, activeFullHistoryCacheJob?.status, schemeCount]);
+
+  useEffect(() => {
     if (!aiConfigHydrated) {
       return;
     }
@@ -614,12 +848,41 @@ export function HomePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, status?.next_draw_datetime, status?.last_synced_at]);
 
+  async function handleRebuildFullHistoryCache() {
+    setFullHistoryCacheLoading(true);
+    setFullHistoryCacheError(null);
+    setDivinationError(null);
+    try {
+      const job = await rebuildFullHistoryCache(schemeCount, "basic", true);
+      setFullHistoryCacheJob(job);
+      if (job.status === "completed") {
+        await refreshFullHistoryCacheStatus(schemeCount);
+      }
+      if (job.status === "failed") {
+        setFullHistoryCacheError(job.error ?? "全历史缓存重建失败");
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "全历史缓存重建启动失败";
+      setFullHistoryCacheError(message);
+    } finally {
+      setFullHistoryCacheLoading(false);
+    }
+  }
+
   async function handleStart() {
     const aiReady = isAIConfigReady(aiConfig);
     setLoading(true);
     setRestored(false);
     setDivinationError(null);
     try {
+      const cacheStatus = fullHistoryCacheStatus?.scheme_count === schemeCount
+        ? fullHistoryCacheStatus
+        : await refreshFullHistoryCacheStatus(schemeCount);
+      if (!cacheStatus.valid) {
+        setDivinationError(fullHistoryCacheStartBlockText(cacheStatus));
+        setLoading(false);
+        return;
+      }
       const targetIssue = status?.next_issue ?? undefined;
       const data = await startDivination(targetIssue, schemeCount, strategyMode, aiReady ? aiConfig : undefined);
       setResult(data);
@@ -631,6 +894,13 @@ export function HomePage() {
       safeStorageSet(STORAGE_KEY, JSON.stringify(normalizeDeep(data)));
       safeStorageSet(COUNT_KEY, String(schemeCount));
     } catch (error) {
+      const cacheStatus = extractFullHistoryCacheStatus(error);
+      if (cacheStatus) {
+        setFullHistoryCacheStatus(cacheStatus);
+        setFullHistoryCacheJob(cacheStatus.active_job ?? null);
+        setDivinationError(fullHistoryCacheStartBlockText(cacheStatus));
+        return;
+      }
       const message = error instanceof Error ? error.message : "推演失败";
       setDivinationError(message);
     } finally {
@@ -643,6 +913,7 @@ export function HomePage() {
     try {
       await runSync(false);
       await loadDashboard();
+      await refreshFullHistoryCacheStatus(schemeCount).catch(() => undefined);
     } finally {
       setSyncing(false);
     }
@@ -1160,7 +1431,7 @@ export function HomePage() {
             <div className="mt-5">
               <div className="mb-5">
                 <p className="text-xs text-slate-500">{"选号目标"}</p>
-                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                <div className="mt-2 grid gap-2 sm:grid-cols-3">
                   {strategyModes.map((mode) => (
                     <button
                       key={mode.value}
@@ -1208,11 +1479,149 @@ export function HomePage() {
                   </button>
                 ))}
               </div>
+
+              <div className={`mt-4 rounded-xl border px-3 py-3 ${fullHistoryCacheReady ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50"}`}>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className={`text-xs font-medium ${fullHistoryCacheReady ? "text-emerald-900" : "text-amber-900"}`}>
+                      {fullHistoryCacheHeadline(fullHistoryCacheStatus, fullHistoryCacheBusy)}
+                    </p>
+                    <p className={`mt-1 text-xs leading-5 ${fullHistoryCacheReady ? "text-emerald-700" : "text-amber-700"}`}>
+                      {fullHistoryCacheReasonText(fullHistoryCacheStatus)}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void handleRebuildFullHistoryCache()}
+                    disabled={fullHistoryCacheBusy || fullHistoryCacheLoading}
+                    className={`inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                      fullHistoryCacheReady
+                        ? "border border-emerald-200 bg-white text-emerald-800 hover:border-emerald-300"
+                        : "bg-slate-900 text-white hover:bg-slate-800"
+                    }`}
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${fullHistoryCacheBusy || fullHistoryCacheLoading ? "animate-spin" : ""}`} />
+                    {fullHistoryCacheBusy ? "缓存更新中" : fullHistoryCacheReady ? "检查并更新缓存" : "更新全历史缓存"}
+                  </button>
+                </div>
+                <div className={`mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-5 ${fullHistoryCacheReady ? "text-emerald-800" : "text-amber-800"}`}>
+                  <div className="rounded-lg bg-white/70 px-2.5 py-2">
+                    <p className="text-[11px] opacity-70">最新开奖</p>
+                    <p className="mt-1 font-medium tabular-nums">{fullHistoryCacheStatus?.latest_issue ?? "--"}</p>
+                  </div>
+                  <div className="rounded-lg bg-white/70 px-2.5 py-2">
+                    <p className="text-[11px] opacity-70">已缓存到</p>
+                    <p className="mt-1 font-medium tabular-nums">{fullHistoryCacheCachedIssue ?? "--"}</p>
+                  </div>
+                  <div className="rounded-lg bg-white/70 px-2.5 py-2">
+                    <p className="text-[11px] opacity-70">可回放期数</p>
+                    <p className="mt-1 font-medium tabular-nums">
+                      {fullHistoryCacheStatus ? `${fullHistoryCacheStatus.expected_issue_count}/${fullHistoryCacheStatus.total_draws}` : "--"}
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-white/70 px-2.5 py-2">
+                    <p className="text-[11px] opacity-70">档位完成</p>
+                    <p className="mt-1 font-medium tabular-nums">
+                      {fullHistoryCacheTotalProfiles ? `${fullHistoryCacheValidProfiles}/${fullHistoryCacheTotalProfiles}` : "--"}
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-white/70 px-2.5 py-2 col-span-2 sm:col-span-1">
+                    <p className="text-[11px] opacity-70">{fullHistoryCacheIncrementalOnly ? "最近更新" : "生成时间"}</p>
+                    <p className="mt-1 font-medium">{formatDateTime(fullHistoryCacheStatus?.generated_at)}</p>
+                  </div>
+                </div>
+                {!fullHistoryCacheReady && fullHistoryCacheStatus?.stale_reasons.length ? (
+                  <p className={`mt-2 text-xs leading-5 ${fullHistoryCacheReady ? "text-emerald-700" : "text-amber-700"}`}>
+                    {fullHistoryCacheStatus.stale_reasons
+                      .slice(0, 2)
+                      .map((reason) => describeFullHistoryCacheReason(reason))
+                      .join("；")}
+                  </p>
+                ) : null}
+                {fullHistoryCacheStatus?.profiles.length ? (
+                  <div className="mt-3">
+                    <button
+                      type="button"
+                      onClick={() => setFullHistoryCacheDetailsOpen((current) => !current)}
+                      className={`flex w-full items-center justify-between rounded-lg border px-2.5 py-2 text-left text-xs transition ${
+                        fullHistoryCacheReady
+                          ? "border-emerald-200 bg-white/75 text-emerald-900 hover:border-emerald-300"
+                          : "border-amber-200 bg-white/75 text-amber-900 hover:border-amber-300"
+                      }`}
+                    >
+                      <span className="font-medium">查看档位明细</span>
+                      <span className="inline-flex items-center gap-1 text-[11px] opacity-80">
+                        {fullHistoryCacheDetailsOpen ? "收起" : "展开"}
+                        <ChevronDown className={`h-3.5 w-3.5 transition ${fullHistoryCacheDetailsOpen ? "rotate-180" : ""}`} />
+                      </span>
+                    </button>
+                    {fullHistoryCacheDetailsOpen ? (
+                      <div className="mt-2 space-y-2">
+                        {fullHistoryCacheStatus.profiles.map((profile) => (
+                          <div
+                            key={profile.profile}
+                            className="rounded-lg border border-white/70 bg-white/70 px-2.5 py-2 text-xs text-slate-700"
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="font-medium text-slate-900">{fullHistoryCacheProfileLabel(profile.profile)}</p>
+                                <p className="mt-0.5 text-[11px] text-slate-500">{profile.mode === "single_hit" ? "单注优先" : "多注覆盖"}</p>
+                              </div>
+                              <span
+                                className={`shrink-0 rounded-md px-2 py-1 text-[11px] font-medium ${
+                                  profile.valid
+                                    ? "bg-emerald-100 text-emerald-800"
+                                    : "bg-amber-100 text-amber-800"
+                                }`}
+                              >
+                                {profile.valid ? "已完成" : "待补齐"}
+                              </span>
+                            </div>
+                            <div className="mt-2 grid grid-cols-2 gap-2 text-[11px] text-slate-600 sm:grid-cols-4">
+                              <div>
+                                <p className="opacity-70">缓存期号</p>
+                                <p className="mt-0.5 font-medium tabular-nums text-slate-900">{profile.latest_issue ?? "--"}</p>
+                              </div>
+                              <div>
+                                <p className="opacity-70">回放期数</p>
+                                <p className="mt-0.5 font-medium tabular-nums text-slate-900">{profile.issue_count || 0}</p>
+                              </div>
+                              <div className="col-span-2 sm:col-span-2">
+                                <p className="opacity-70">生成时间</p>
+                                <p className="mt-0.5 font-medium text-slate-900">{formatDateTime(profile.generated_at)}</p>
+                              </div>
+                            </div>
+                            {!profile.valid && profile.reason ? (
+                              <p className="mt-2 text-[11px] leading-5 text-amber-800">{describeFullHistoryCacheReason(profile.reason)}</p>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+                {activeFullHistoryCacheJob ? (
+                  <div className="mt-3">
+                    <div className="h-1.5 overflow-hidden rounded-full bg-white/80">
+                      <div
+                        className="h-full rounded-full bg-slate-900 transition-all"
+                        style={{ width: `${Math.round((activeFullHistoryCacheJob.progress || 0) * 100)}%` }}
+                      />
+                    </div>
+                    <p className={`mt-1 text-xs ${fullHistoryCacheReady ? "text-emerald-700" : "text-amber-700"}`}>
+                      {activeFullHistoryCacheJob.message ?? `${Math.round((activeFullHistoryCacheJob.progress || 0) * 100)}%`}
+                    </p>
+                  </div>
+                ) : null}
+                {fullHistoryCacheError ? (
+                  <p className="mt-2 text-xs leading-5 text-red-700">{fullHistoryCacheError}</p>
+                ) : null}
+              </div>
             </div>
 
             <button
               onClick={handleStart}
-              disabled={loading}
+              disabled={loading || fullHistoryCacheBusy || fullHistoryCacheLoading || !fullHistoryCacheReady}
               className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-red-600 to-blue-600 px-5 text-sm font-semibold text-white shadow-md transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
             >
               <PanelsTopLeft className="h-4 w-4" />

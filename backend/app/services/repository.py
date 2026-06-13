@@ -300,37 +300,70 @@ def upsert_draws(draws: list[LottoDraw]) -> tuple[int, int]:
     updated = 0
     with get_connection() as conn:
         for draw in draws:
-            existing = conn.execute("SELECT issue FROM lotto_draws WHERE issue = ?", (draw.issue,)).fetchone()
+            row_values = {
+                "draw_date": draw.draw_date.isoformat(),
+                "front_numbers": _serialize_numbers(draw.front_numbers),
+                "back_numbers": _serialize_numbers(draw.back_numbers),
+                "raw_result": draw.raw_result,
+                "pool_balance_afterdraw": draw.pool_balance_afterdraw,
+                "prize_level_list": _serialize_prize_levels(draw.prize_level_list),
+            }
+            existing = conn.execute(
+                """
+                SELECT draw_date, front_numbers, back_numbers, raw_result,
+                       pool_balance_afterdraw, prize_level_list
+                FROM lotto_draws
+                WHERE issue = ?
+                """,
+                (draw.issue,),
+            ).fetchone()
+            if existing is None:
+                conn.execute(
+                    """
+                    INSERT INTO lotto_draws (
+                        issue, draw_date, front_numbers, back_numbers, raw_result,
+                        pool_balance_afterdraw, prize_level_list, updated_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    """,
+                    (
+                        draw.issue,
+                        row_values["draw_date"],
+                        row_values["front_numbers"],
+                        row_values["back_numbers"],
+                        row_values["raw_result"],
+                        row_values["pool_balance_afterdraw"],
+                        row_values["prize_level_list"],
+                    ),
+                )
+                inserted += 1
+                continue
+            has_changes = any(str(existing[key] or "") != str(value or "") for key, value in row_values.items())
+            if not has_changes:
+                continue
             conn.execute(
                 """
-                INSERT INTO lotto_draws (
-                    issue, draw_date, front_numbers, back_numbers, raw_result,
-                    pool_balance_afterdraw, prize_level_list, updated_at
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                ON CONFLICT(issue) DO UPDATE SET
-                    draw_date = excluded.draw_date,
-                    front_numbers = excluded.front_numbers,
-                    back_numbers = excluded.back_numbers,
-                    raw_result = excluded.raw_result,
-                    pool_balance_afterdraw = excluded.pool_balance_afterdraw,
-                    prize_level_list = excluded.prize_level_list,
+                UPDATE lotto_draws
+                SET draw_date = ?,
+                    front_numbers = ?,
+                    back_numbers = ?,
+                    raw_result = ?,
+                    pool_balance_afterdraw = ?,
+                    prize_level_list = ?,
                     updated_at = CURRENT_TIMESTAMP
+                WHERE issue = ?
                 """,
                 (
+                    row_values["draw_date"],
+                    row_values["front_numbers"],
+                    row_values["back_numbers"],
+                    row_values["raw_result"],
+                    row_values["pool_balance_afterdraw"],
+                    row_values["prize_level_list"],
                     draw.issue,
-                    draw.draw_date.isoformat(),
-                    _serialize_numbers(draw.front_numbers),
-                    _serialize_numbers(draw.back_numbers),
-                    draw.raw_result,
-                    draw.pool_balance_afterdraw,
-                    _serialize_prize_levels(draw.prize_level_list),
                 ),
             )
-            if existing:
-                updated += 1
-            else:
-                inserted += 1
+            updated += 1
         conn.commit()
     return inserted, updated
 

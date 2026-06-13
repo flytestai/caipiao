@@ -11,6 +11,8 @@ from app.models import (
     BacktestResponse,
     DivinationRequest,
     DivinationResponse,
+    FullHistoryCacheRebuildJob,
+    FullHistoryCacheStatus,
     LottoDraw,
     ManualDrawResult,
     ManualDrawResultUpsertRequest,
@@ -25,7 +27,14 @@ from app.models import (
 from app.services.ai_gateway import fetch_model_list
 from app.services.analytics import build_analytics
 from app.services.backtest_jobs import cancel_backtest_job, create_backtest_job, get_backtest_job, list_backtest_jobs
-from app.services.backtest_service import run_backtest, run_divination_with_backtest_logic
+from app.services.backtest_service import (
+    FullHistoryCacheStaleError,
+    create_full_history_cache_rebuild_job,
+    get_full_history_cache_rebuild_job,
+    get_full_history_cache_status,
+    run_backtest,
+    run_divination_with_backtest_logic,
+)
 from app.services.meihua import AIConfigurationError, AIGenerationError
 from app.services.repository import (
     delete_saved_scheme,
@@ -68,6 +77,14 @@ def divination(payload: DivinationRequest) -> DivinationResponse:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except AIGenerationError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except FullHistoryCacheStaleError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": str(exc),
+                "cache_status": exc.status.model_dump(mode="json"),
+            },
+        ) from exc
 
 
 @router.post("/ai/models", response_model=AIModelListResponse, summary="Fetch available AI models")
@@ -86,6 +103,31 @@ def sync_status() -> SyncStatus:
 @router.post("/sync/run", response_model=SyncResult, summary="Run sync now")
 def sync_run(full_refresh: bool = False) -> SyncResult:
     return sync_official_history(full_refresh=full_refresh)
+
+
+@router.get("/full-history-cache/status", response_model=FullHistoryCacheStatus, summary="Full-history cache status")
+def full_history_cache_status(
+    scheme_count: int = Query(3, ge=1, le=50),
+    ticket_mode: str = Query("basic", pattern="^(basic|additional)$"),
+) -> FullHistoryCacheStatus:
+    return get_full_history_cache_status(scheme_count=scheme_count, ticket_mode=ticket_mode)
+
+
+@router.post("/full-history-cache/rebuild", response_model=FullHistoryCacheRebuildJob, summary="Rebuild full-history cache")
+def full_history_cache_rebuild(
+    scheme_count: int = Query(3, ge=1, le=50),
+    ticket_mode: str = Query("basic", pattern="^(basic|additional)$"),
+    force: bool = Query(False),
+) -> FullHistoryCacheRebuildJob:
+    return create_full_history_cache_rebuild_job(scheme_count=scheme_count, ticket_mode=ticket_mode, force=force)
+
+
+@router.get("/full-history-cache/jobs/{job_id}", response_model=FullHistoryCacheRebuildJob, summary="Get full-history cache rebuild job")
+def full_history_cache_job_get(job_id: str) -> FullHistoryCacheRebuildJob:
+    job = get_full_history_cache_rebuild_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Full-history cache rebuild job not found")
+    return job
 
 
 @router.get("/saved-schemes", response_model=SavedSchemeListResponse, summary="Saved schemes with evaluation stats")

@@ -226,6 +226,8 @@ class PrecomputedHistoryFeatures:
     back_recent_hits: dict[int, int]
     front_window_hits: dict[int, dict[int, int]]
     back_window_hits: dict[int, dict[int, int]]
+    front_pair_window_hits: dict[int, dict[tuple[int, int], int]]
+    back_pair_window_hits: dict[int, dict[tuple[int, int], int]]
 
 
 @dataclass(frozen=True)
@@ -238,6 +240,9 @@ class TicketCandidate:
     back_score: float
     base_score: float
     crowd_penalty: float
+    front_pair_support: float = 0.0
+    back_pair_support: float = 0.0
+    jackpot_path_score: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -441,6 +446,29 @@ def _window_hits(draws: list, *, zone: str) -> dict[int, dict[int, int]]:
     return hits_by_window
 
 
+def _front_window_pair_hits(draws: list) -> dict[int, dict[tuple[int, int], int]]:
+    pair_hits_by_window: dict[int, dict[tuple[int, int], int]] = {}
+    for window_size, _weight in MULTI_COVER_SUPERVISED_WINDOWS:
+        pair_hits: dict[tuple[int, int], int] = {}
+        for draw in draws[:window_size]:
+            for left, right in combinations(sorted(draw.front_numbers), 2):
+                pair_key = (left, right)
+                pair_hits[pair_key] = pair_hits.get(pair_key, 0) + 1
+        pair_hits_by_window[window_size] = pair_hits
+    return pair_hits_by_window
+
+
+def _back_window_pair_hits(draws: list) -> dict[int, dict[tuple[int, int], int]]:
+    pair_hits_by_window: dict[int, dict[tuple[int, int], int]] = {}
+    for window_size, _weight in MULTI_COVER_SUPERVISED_WINDOWS:
+        pair_hits: dict[tuple[int, int], int] = {}
+        for draw in draws[:window_size]:
+            pair_key = tuple(sorted(draw.back_numbers))
+            pair_hits[pair_key] = pair_hits.get(pair_key, 0) + 1
+        pair_hits_by_window[window_size] = pair_hits
+    return pair_hits_by_window
+
+
 def _zone_pick_count(pool: range) -> int:
     return 5 if len(pool) == 35 else 2
 
@@ -475,6 +503,8 @@ def build_history_feature_context(history: list) -> PrecomputedHistoryFeatures:
         back_recent_hits=_recent_hits(history, zone="back", lookback=30),
         front_window_hits=_window_hits(history, zone="front"),
         back_window_hits=_window_hits(history, zone="back"),
+        front_pair_window_hits=_front_window_pair_hits(history),
+        back_pair_window_hits=_back_window_pair_hits(history),
     )
 
 
@@ -529,6 +559,69 @@ def _multi_window_candidate_signals(
     return round(blended_signal, 4), stability_signal, round(underhit_signal, 4)
 
 
+def _front_cluster_candidate_signal(
+    *,
+    number: int,
+    history_size: int,
+    window_hits: dict[int, dict[int, int]] | None,
+    pair_window_hits: dict[int, dict[tuple[int, int], int]] | None,
+) -> float:
+    if not window_hits or not pair_window_hits or history_size <= 0:
+        return 0.0
+
+    blended_signal = 0.0
+    weight_total = 0.0
+    support_ratios: list[float] = []
+    expected_hits_base = 5 / 35
+
+    for window_size, weight in MULTI_COVER_SUPERVISED_WINDOWS:
+        observed_map = window_hits.get(window_size)
+        pair_map = pair_window_hits.get(window_size)
+        if not observed_map or not pair_map:
+            continue
+        observed_hits = observed_map.get(number, 0)
+        if observed_hits <= 0:
+            continue
+        partner_counts = [
+            count
+            for (left, right), count in pair_map.items()
+            if left == number or right == number
+        ]
+        if not partner_counts:
+            continue
+
+        top4_sum = sum(sorted(partner_counts, reverse=True)[:4])
+        support_ratio = top4_sum / max(1.0, observed_hits * 4.0)
+        expected_hits = min(window_size, history_size) * expected_hits_base
+        hit_ratio = observed_hits / max(expected_hits, 1e-9)
+
+        if window_size <= 12:
+            support_low, support_high = 0.42, 1.02
+        elif window_size <= 36:
+            support_low, support_high = 0.38, 0.98
+        else:
+            support_low, support_high = 0.34, 0.94
+
+        support_signal = _normalize_ratio_band(support_ratio, support_low, support_high)
+        hit_signal = _normalize_ratio_band(hit_ratio, 0.76, 1.18)
+        blended_signal += (support_signal * 0.72 + hit_signal * 0.28) * weight
+        weight_total += weight
+        support_ratios.append(support_ratio)
+
+    if weight_total <= 0:
+        return 0.0
+
+    blended_signal /= weight_total
+    ratio_avg = sum(support_ratios) / len(support_ratios) if support_ratios else 0.0
+    ratio_range = (max(support_ratios) - min(support_ratios)) if len(support_ratios) > 1 else 0.0
+    consistency_signal = max(0.0, 1 - ratio_range / 0.55)
+    moderate_ratio_signal = _normalize_ratio_band(ratio_avg, 0.40, 0.92)
+    return round(
+        max(0.0, min(1.0, blended_signal * 0.74 + consistency_signal * 0.14 + moderate_ratio_signal * 0.12)),
+        4,
+    )
+
+
 def _score_candidates(
     pool: range,
     tail_weights: dict[int, float],
@@ -539,6 +632,7 @@ def _score_candidates(
     *,
     history_size: int | None = None,
     window_hits: dict[int, dict[int, int]] | None = None,
+    pair_window_hits: dict[int, dict[tuple[int, int], int]] | None = None,
 ) -> list[CandidateBreakdown]:
     weights = score_weights or DEFAULT_SCORE_WEIGHTS
     expected_frequency = (sum(frequency_map.values()) / len(pool)) if pool else 1.0
@@ -568,6 +662,7 @@ def _score_candidates(
             low_ratio=0.55,
             high_ratio=1.15,
         )
+        cluster_signal = 0.0
         if history_size and window_hits:
             window_signal, stability_signal, underhit_signal = _multi_window_candidate_signals(
                 number=number,
@@ -585,13 +680,24 @@ def _score_candidates(
                 recent_signal * 0.50 + window_signal * 0.32 + underhit_signal * 0.18,
                 4,
             )
+        if len(pool) == 35 and history_size and window_hits and pair_window_hits:
+            cluster_signal = _front_cluster_candidate_signal(
+                number=number,
+                history_size=history_size,
+                window_hits=window_hits,
+                pair_window_hits=pair_window_hits,
+            )
+            omission_signal = round(omission_signal * 0.82 + cluster_signal * 0.18, 4)
+            frequency_signal = round(frequency_signal * 0.64 + cluster_signal * 0.36, 4)
+            recent_signal = round(recent_signal * 0.76 + cluster_signal * 0.24, 4)
         # Candidate scoring now prefers numbers near the zone-level expectation
         # with a slight under-hit allowance, instead of blindly chasing the coldest tail.
         score = round(
             weights["tail"] * (tail_weight / max_tail_weight)
             + weights["omission"] * omission_signal
             + weights["frequency"] * frequency_signal
-            + weights["recent_hits"] * recent_signal,
+            + weights["recent_hits"] * recent_signal
+            + cluster_signal * 0.18,
             4,
         )
         scored.append(
@@ -860,6 +966,7 @@ def _combo_score(
     zone: str,
     score_map: dict[int, float],
     combo_weights: dict[str, float] | None = None,
+    front_pair_support_map: dict[tuple[int, int], float] | None = None,
 ) -> float:
     weights = {**DEFAULT_COMBO_WEIGHTS, **(combo_weights or {})}
     numbers_key = tuple(sorted(numbers))
@@ -870,8 +977,109 @@ def _combo_score(
         candidate_weight=weights["candidate"],
         structure_weight=weights["structure"],
         front_jackpot_pattern_weight=weights.get("front_jackpot_pattern", 0.0),
+        front_pair_support_map=front_pair_support_map,
     )
     return round(combo_score, 4)
+
+
+def _front_pair_support_map(
+    *,
+    history_size: int,
+    pair_window_hits: dict[int, dict[tuple[int, int], int]] | None,
+) -> dict[tuple[int, int], float]:
+    if not pair_window_hits or history_size <= 0:
+        return {}
+
+    weighted_support: dict[tuple[int, int], float] = {}
+    total_weight = sum(weight for _window_size, weight in MULTI_COVER_SUPERVISED_WINDOWS) or 1.0
+    expected_pair_rate = (5 / 35) * (4 / 34)
+
+    for window_size, weight in MULTI_COVER_SUPERVISED_WINDOWS:
+        pair_map = pair_window_hits.get(window_size)
+        if not pair_map:
+            continue
+        effective_window = min(window_size, history_size)
+        expected_hits = max(1e-9, effective_window * expected_pair_rate)
+        if window_size <= 12:
+            low_ratio, high_ratio = 0.95, 4.20
+        elif window_size <= 36:
+            low_ratio, high_ratio = 0.90, 3.80
+        else:
+            low_ratio, high_ratio = 0.85, 3.20
+        for pair_key, observed_hits in pair_map.items():
+            ratio = observed_hits / expected_hits
+            signal = _normalize_ratio_band(ratio, low_ratio, high_ratio)
+            if signal <= 0:
+                continue
+            weighted_support[pair_key] = weighted_support.get(pair_key, 0.0) + signal * weight
+
+    return {
+        pair_key: round(score / total_weight, 4)
+        for pair_key, score in weighted_support.items()
+    }
+
+
+def _back_pair_support_map(
+    *,
+    history_size: int,
+    pair_window_hits: dict[int, dict[tuple[int, int], int]] | None,
+) -> dict[tuple[int, int], float]:
+    if not pair_window_hits or history_size <= 0:
+        return {}
+
+    weighted_support: dict[tuple[int, int], float] = {}
+    total_weight = sum(weight for _window_size, weight in MULTI_COVER_SUPERVISED_WINDOWS) or 1.0
+    expected_pair_rate = 1 / 66
+
+    for window_size, weight in MULTI_COVER_SUPERVISED_WINDOWS:
+        pair_map = pair_window_hits.get(window_size)
+        if not pair_map:
+            continue
+        effective_window = min(window_size, history_size)
+        expected_hits = max(1e-9, effective_window * expected_pair_rate)
+        if window_size <= 12:
+            low_ratio, high_ratio = 0.92, 3.90
+        elif window_size <= 36:
+            low_ratio, high_ratio = 0.88, 3.40
+        else:
+            low_ratio, high_ratio = 0.84, 3.00
+        for pair_key, observed_hits in pair_map.items():
+            ratio = observed_hits / expected_hits
+            signal = _normalize_ratio_band(ratio, low_ratio, high_ratio)
+            if signal <= 0:
+                continue
+            weighted_support[pair_key] = weighted_support.get(pair_key, 0.0) + signal * weight
+
+    return {
+        pair_key: round(score / total_weight, 4)
+        for pair_key, score in weighted_support.items()
+    }
+
+
+def _front_pair_history_support_score(
+    numbers_key: tuple[int, ...],
+    pair_support_map: dict[tuple[int, int], float],
+) -> float:
+    if not pair_support_map:
+        return 0.0
+    pair_scores = [
+        pair_support_map.get(tuple(sorted(pair)), 0.0)
+        for pair in combinations(numbers_key, 2)
+    ]
+    if not pair_scores:
+        return 0.0
+    avg_score = sum(pair_scores) / len(pair_scores)
+    top_score = sum(sorted(pair_scores, reverse=True)[:4]) / max(1, min(4, len(pair_scores)))
+    return round(avg_score * 0.55 + top_score * 0.45, 4)
+
+
+def _back_pair_history_support_score(
+    numbers_key: tuple[int, ...],
+    pair_support_map: dict[tuple[int, int], float],
+) -> float:
+    if not pair_support_map:
+        return 0.0
+    return round(pair_support_map.get(tuple(sorted(numbers_key)), 0.0), 4)
 
 
 def _combo_score_from_key(
@@ -882,12 +1090,18 @@ def _combo_score_from_key(
     candidate_weight: float,
     structure_weight: float,
     front_jackpot_pattern_weight: float = 0.0,
+    front_pair_support_map: dict[tuple[int, int], float] | None = None,
+    back_pair_support_map: dict[tuple[int, int], float] | None = None,
 ) -> float:
     candidate_score = sum(score_map[number] for number in numbers_key) / len(numbers_key)
     structure_score = _combination_structure_score_cached(numbers_key, zone)
     combo_score = candidate_weight * candidate_score + structure_weight * structure_score
     if zone == "front" and front_jackpot_pattern_weight > 0:
         combo_score += front_jackpot_pattern_weight * _front_jackpot_pattern_bonus_cached(numbers_key)
+    if zone == "front" and front_pair_support_map:
+        combo_score += _front_pair_history_support_score(numbers_key, front_pair_support_map) * 0.08
+    if zone == "back" and back_pair_support_map:
+        combo_score += _back_pair_history_support_score(numbers_key, back_pair_support_map) * 0.28
     return round(combo_score, 4)
 
 
@@ -941,9 +1155,21 @@ def _enumerate_scored_combinations(
     zone: str,
     combo_weights: dict[str, float] | None = None,
     search_profile: str = "full",
+    history_size: int | None = None,
+    pair_window_hits: dict[int, dict[tuple[int, int], int]] | None = None,
 ) -> list[tuple[list[int], float]]:
     weights = {**DEFAULT_COMBO_WEIGHTS, **(combo_weights or {})}
     score_map = {item.number: item.score for item in source}
+    front_pair_support = (
+        _front_pair_support_map(history_size=history_size, pair_window_hits=pair_window_hits)
+        if zone == "front" and history_size and pair_window_hits
+        else {}
+    )
+    back_pair_support = (
+        _back_pair_support_map(history_size=history_size, pair_window_hits=pair_window_hits)
+        if zone == "back" and history_size and pair_window_hits
+        else {}
+    )
     top_numbers = sorted(
         _top_number_pool(
         source,
@@ -969,6 +1195,8 @@ def _enumerate_scored_combinations(
                     candidate_weight=candidate_weight,
                     structure_weight=structure_weight,
                     front_jackpot_pattern_weight=front_jackpot_pattern_weight,
+                    front_pair_support_map=front_pair_support,
+                    back_pair_support_map=back_pair_support,
                 ),
             )
         )
@@ -1104,6 +1332,34 @@ def _ticket_candidate_budget(
     return budget
 
 
+def _ticket_jackpot_path_score(
+    *,
+    front_numbers: tuple[int, ...],
+    back_numbers: tuple[int, ...],
+    front_pair_support_map: dict[tuple[int, int], float] | None,
+    back_pair_support_map: dict[tuple[int, int], float] | None,
+    front_score: float,
+    back_score: float,
+) -> tuple[float, float, float]:
+    front_pair_support = (
+        _front_pair_history_support_score(front_numbers, front_pair_support_map or {})
+        if front_pair_support_map
+        else 0.0
+    )
+    back_pair_support = (
+        _back_pair_history_support_score(back_numbers, back_pair_support_map or {})
+        if back_pair_support_map
+        else 0.0
+    )
+    jackpot_path_score = round(
+        front_pair_support * 0.54
+        + back_pair_support * 0.38
+        + min(front_score, back_score) * 0.08,
+        4,
+    )
+    return front_pair_support, back_pair_support, jackpot_path_score
+
+
 def _build_ticket_candidates(
     front_candidates: list[CandidateBreakdown],
     back_candidates: list[CandidateBreakdown],
@@ -1111,8 +1367,21 @@ def _build_ticket_candidates(
     strategy_mode: str,
     combo_weights: dict[str, float] | None = None,
     search_profile: str = "full",
+    history_size: int | None = None,
+    front_pair_window_hits: dict[int, dict[tuple[int, int], int]] | None = None,
+    back_pair_window_hits: dict[int, dict[tuple[int, int], int]] | None = None,
 ) -> list[TicketCandidate]:
     weights = {**DEFAULT_COMBO_WEIGHTS, **(combo_weights or {})}
+    front_pair_support_map = (
+        _front_pair_support_map(history_size=history_size, pair_window_hits=front_pair_window_hits)
+        if history_size and front_pair_window_hits
+        else {}
+    )
+    back_pair_support_map = (
+        _back_pair_support_map(history_size=history_size, pair_window_hits=back_pair_window_hits)
+        if history_size and back_pair_window_hits
+        else {}
+    )
     front_combos = _enumerate_scored_combinations(
         front_candidates,
         pick_count=5,
@@ -1120,6 +1389,8 @@ def _build_ticket_candidates(
         zone="front",
         combo_weights=weights,
         search_profile=search_profile,
+        history_size=history_size,
+        pair_window_hits=front_pair_window_hits,
     )
     back_combos = _enumerate_scored_combinations(
         back_candidates,
@@ -1128,11 +1399,21 @@ def _build_ticket_candidates(
         zone="back",
         combo_weights=weights,
         search_profile=search_profile,
+        history_size=history_size,
+        pair_window_hits=back_pair_window_hits,
     )
     front_limit, back_limit = _scheme_search_limits(strategy_mode, search_profile, combo_weights=weights)
     ticket_candidates: list[TicketCandidate] = []
     for front_numbers, front_score in front_combos[:front_limit]:
         for back_numbers, back_score in back_combos[:back_limit]:
+            front_pair_support, back_pair_support, jackpot_path_score = _ticket_jackpot_path_score(
+                front_numbers=tuple(front_numbers),
+                back_numbers=tuple(back_numbers),
+                front_pair_support_map=front_pair_support_map,
+                back_pair_support_map=back_pair_support_map,
+                front_score=front_score,
+                back_score=back_score,
+            )
             ticket_candidates.append(
                 TicketCandidate(
                     front_numbers=tuple(front_numbers),
@@ -1143,10 +1424,14 @@ def _build_ticket_candidates(
                     back_score=back_score,
                     base_score=round(front_score * weights["pair_front"] + back_score * weights["pair_back"], 4),
                     crowd_penalty=_ticket_crowd_penalty(front_numbers, back_numbers),
+                    front_pair_support=front_pair_support,
+                    back_pair_support=back_pair_support,
+                    jackpot_path_score=jackpot_path_score,
                 )
             )
     ticket_candidates.sort(
         key=lambda item: (
+            -item.jackpot_path_score,
             -item.base_score,
             item.crowd_penalty,
             item.front_numbers,
@@ -1199,6 +1484,7 @@ def _ticket_selection_score(
         or weights.get("front_wheel_mode", 0.0) >= 0.5
         or weights.get("front_anchor_repeat_mode", 0.0) >= 0.5
     )
+    jackpot_path_bonus = 0.0
     if strategy_mode == "multi_cover" and high_tier_anchor_enabled:
         rotated_numbers = candidate.front_set - context.anchor_front
         if anchor_overlap == 4 and len(rotated_numbers) == 1:
@@ -1214,6 +1500,7 @@ def _ticket_selection_score(
         elif anchor_overlap == 5:
             anchor_rotation_bonus = 0.02
             anchor_rotation_penalty = 0.14
+        jackpot_path_bonus = candidate.jackpot_path_score * 0.28 + candidate.back_pair_support * 0.12
 
     if strategy_mode == "single_hit":
         score = (
@@ -1231,6 +1518,7 @@ def _ticket_selection_score(
             candidate.base_score * weights["multi_cover_pair"]
             + novelty * weights["multi_cover_novelty"]
             + fresh_back_bonus * weights["fresh_back_bonus"]
+            + jackpot_path_bonus
             + anchor_rotation_bonus
             - front_overlap_penalty * weights["overlap_front"]
             - back_overlap_penalty * weights["overlap_back"]
@@ -1345,6 +1633,286 @@ def _scheme_from_ticket_candidate(
     )
 
 
+def _reserved_high_tier_combo_weights(combo_weights: dict[str, float] | None = None) -> dict[str, float]:
+    weights = {**DEFAULT_COMBO_WEIGHTS, **(combo_weights or {})}
+    reserved = dict(weights)
+    reserved["candidate"] = max(reserved["candidate"], 0.84)
+    reserved["structure"] = min(reserved["structure"], 0.18)
+    reserved["pair_front"] = max(reserved["pair_front"], 0.88)
+    reserved["pair_back"] = min(reserved["pair_back"], 0.18)
+    reserved["multi_cover_pair"] = max(reserved["multi_cover_pair"], 0.92)
+    reserved["multi_cover_novelty"] = min(reserved["multi_cover_novelty"], 0.12)
+    reserved["back_usage_penalty"] = min(reserved["back_usage_penalty"], 0.10)
+    reserved["fresh_back_bonus"] = max(reserved["fresh_back_bonus"], 0.24)
+    reserved["crowd_penalty"] = min(reserved["crowd_penalty"], 0.10)
+    reserved["jackpot_front_core"] = 1.0
+    reserved["front_jackpot_pattern"] = max(reserved.get("front_jackpot_pattern", 0.0), 0.18)
+    reserved["front_probe_slots"] = max(reserved.get("front_probe_slots", 0.0), 1.0)
+    reserved["front_probe_anchor_bonus"] = max(reserved.get("front_probe_anchor_bonus", 0.0), 0.05)
+    reserved["front_probe_support_bonus"] = max(reserved.get("front_probe_support_bonus", 0.0), 0.02)
+    reserved["back_wheel_mode"] = max(reserved.get("back_wheel_mode", 0.0), 1.0)
+    reserved["back_independent_coverage"] = 0.0
+    reserved["back_jackpot_slots"] = max(reserved.get("back_jackpot_slots", 0.0), 3.0)
+    reserved["back_pair_floor_bonus"] = max(reserved.get("back_pair_floor_bonus", 0.0), 0.20)
+    reserved["back_pair_coverage_bonus"] = max(reserved.get("back_pair_coverage_bonus", 0.0), 0.28)
+    return reserved
+
+
+def _reserved_high_tier_candidate_score(candidate: TicketCandidate) -> float:
+    return round(
+        candidate.front_score * 0.76
+        + candidate.back_score * 0.24
+        + candidate.jackpot_path_score * 0.34
+        + candidate.back_pair_support * 0.14
+        + min(candidate.front_score, candidate.back_score) * 0.08
+        - candidate.crowd_penalty * 0.08,
+        4,
+    )
+
+
+def _reserved_high_tier_single_hit_strategy_text(index: int, reserved_count: int) -> str:
+    return (
+        f"\u9884\u7559\u7b2c {index + 1} \u7ec4 / \u5171 {reserved_count} \u7ec4\u5355\u6ce8\u51b2\u9ad8\uff1a"
+        "\u6309\u5355\u6ce8\u5f3a\u5ea6\u4f18\u5148\u51b2\u51fb 1-3 \u7b49\u5956\uff0c\u5e76\u4fdd\u7559 1-4 \u7b49\u5956\u7684\u8def\u5f84\uff0c"
+        "\u4e0d\u4e3b\u52a8\u627f\u62c5\u4fdd\u5e95\u8986\u76d6\u4efb\u52a1\u3002"
+    )
+
+
+def _reserved_high_tier_single_hit_rationale_text(index: int, reserved_count: int) -> str:
+    return (
+        f"\u8fd9\u662f\u9884\u7559\u653b\u51fb\u6a21\u5757\u7684\u7b2c {index + 1} \u7ec4\uff0c"
+        "\u76f4\u63a5\u501f\u7528\u5355\u6ce8\u7b56\u7565\u7684\u6574\u7968\u6392\u540d\uff0c"
+        "\u628a\u524d\u533a\u5f3a\u6838\u548c\u540e\u533a\u9ad8\u8d28\u5bf9\u5b50\u7ed1\u5728\u540c\u4e00\u5f20\u7968\u4e0a\uff0c"
+        f"\u4e3a {reserved_count} \u7ec4\u5c0f\u89c4\u6a21\u51b2\u51fb\u8def\u5f84\u4f18\u5148\u8ffd\u6c42 1-3 \u7b49\u5956\u7a7f\u900f\u3002"
+    )
+
+
+def _build_reserved_high_tier_scheme(
+    front_candidates: list[CandidateBreakdown],
+    back_candidates: list[CandidateBreakdown],
+    *,
+    combo_weights: dict[str, float] | None = None,
+    search_profile: str = "full",
+) -> FinalScheme | None:
+    reserved_weights = _reserved_high_tier_combo_weights(combo_weights)
+    reserved_schemes = _build_multi_cover_front_core_schemes(
+        front_candidates,
+        back_candidates,
+        1,
+        combo_weights=reserved_weights,
+        search_profile=search_profile,
+    )
+    if reserved_schemes:
+        reserved_scheme = reserved_schemes[0]
+        return reserved_scheme.model_copy(
+            update={
+                "label": SCHEME_STYLES[0] if SCHEME_STYLES else "Scheme 1",
+                "strategy": "预留 1 组冲击 1-4 等奖：前区保持强核集中，后区仅做有限变体，优先保留高奖级跃迁空间。",
+                "rationale": "这一组不参与保底覆盖分摊，而是单独承担 1-4 等奖冲高任务；前区尽量集中在最强 4+1 主核，后区只保留少量高质量配对。",
+            }
+        )
+
+    reserved_candidates = _build_ticket_candidates(
+        front_candidates,
+        back_candidates,
+        strategy_mode="multi_cover",
+        combo_weights=reserved_weights,
+        search_profile=search_profile,
+    )
+    if not reserved_candidates:
+        return None
+    reserved_candidates.sort(
+        key=lambda item: (
+            -_reserved_high_tier_candidate_score(item),
+            -item.front_score,
+            -item.back_score,
+            item.crowd_penalty,
+            item.front_numbers,
+            item.back_numbers,
+        )
+    )
+    return _scheme_from_ticket_candidate(
+        reserved_candidates[0],
+        index=0,
+        front_candidates=front_candidates,
+        back_candidates=back_candidates,
+        strategy="预留 1 组冲击 1-4 等奖：直接从高奖级候选池里取前区更强、后区更稳的完整票型。",
+        rationale="当强核轮转方案暂时不足时，回退到高奖级优先候选的完整组合，保证每次生成都至少保留 1 组专门冲击高等级奖项。",
+    )
+
+
+def _reserved_high_tier_slot_count(
+    scheme_count: int,
+    combo_weights: dict[str, float] | None = None,
+) -> int:
+    weights = {**DEFAULT_COMBO_WEIGHTS, **(combo_weights or {})}
+    if scheme_count < 2:
+        return 0
+    if (
+        weights.get("front_wheel_mode", 0.0) >= 0.5
+        or weights.get("front_anchor_repeat_mode", 0.0) >= 0.5
+        or weights.get("back_wheel_mode", 0.0) >= 0.5
+    ):
+        return 0
+    if scheme_count >= 7:
+        return min(3, scheme_count - 1)
+    if scheme_count >= 5:
+        return min(2, scheme_count - 1)
+    return 1
+
+
+def _reserved_high_tier_strategy_text(index: int, reserved_count: int) -> str:
+    return (
+        f"\u9884\u7559\u7b2c {index + 1} \u7ec4 / \u5171 {reserved_count} \u7ec4\u51b2\u9ad8\uff1a"
+        "\u4f18\u5148\u51b2\u51fb 1-2 \u7b49\u5956\uff0c\u5e76\u4fdd\u7559 1-4 \u7b49\u5956\u7684\u524d\u533a\u5f3a\u6838\u8def\u5f84\uff0c"
+        "\u540e\u533a\u53ea\u505a\u6709\u9650\u9ad8\u8d28\u53d8\u4f53\u3002"
+    )
+
+
+def _reserved_high_tier_rationale_text(index: int, reserved_count: int, *, front_core: bool) -> str:
+    if front_core:
+        return (
+            f"\u8fd9\u662f\u653b\u51fb\u6a21\u5757\u7684\u7b2c {index + 1} \u7ec4\uff0c"
+            "\u4e0d\u53c2\u4e0e\u4fdd\u5e95\u8986\u76d6\u5206\u644a\uff1b"
+            "\u524d\u533a\u5c3d\u91cf\u96c6\u4e2d\u5728 4+1 \u4e3b\u6838\u8f6e\u6362\uff0c"
+            "\u540e\u533a\u4ec5\u4fdd\u7559\u5c11\u91cf\u9ad8\u8d28\u91cf\u914d\u5bf9\uff0c"
+            f"\u7528 {reserved_count} \u7ec4\u5c0f\u89c4\u6a21\u53d8\u4f53\u6269\u5c55 1-4 \u7b49\u5956\u8def\u5f84\u3002"
+        )
+    return (
+        f"\u5f53\u524d\u533a\u5f3a\u6838\u8f6e\u8f6c\u65b9\u6848\u4e0d\u8db3\u65f6\uff0c"
+        f"\u7b2c {index + 1} \u7ec4\u56de\u9000\u5230\u9ad8\u5956\u7ea7\u4f18\u5148\u5019\u9009\uff0c"
+        "\u76f4\u63a5\u9009\u53d6\u524d\u533a\u66f4\u5f3a\u3001\u540e\u533a\u66f4\u7a33\u7684\u5b8c\u6574\u7968\u578b\uff0c"
+        f"\u786e\u4fdd\u6bcf\u6b21\u751f\u6210\u81f3\u5c11\u6709 {reserved_count} \u7ec4\u4e13\u95e8\u7528\u4e8e\u51b2\u51fb 1-2 \u7b49\u5956\u3002"
+    )
+
+
+def _build_reserved_high_tier_schemes(
+    front_candidates: list[CandidateBreakdown],
+    back_candidates: list[CandidateBreakdown],
+    *,
+    reserved_count: int,
+    combo_weights: dict[str, float] | None = None,
+    search_profile: str = "full",
+    history_size: int | None = None,
+    front_pair_window_hits: dict[int, dict[tuple[int, int], int]] | None = None,
+    back_pair_window_hits: dict[int, dict[tuple[int, int], int]] | None = None,
+) -> list[FinalScheme]:
+    if reserved_count <= 0:
+        return []
+
+    reserved_weights = _reserved_high_tier_combo_weights(combo_weights)
+    built_schemes: list[FinalScheme] = []
+    used_keys: set[tuple[tuple[int, ...], tuple[int, ...]]] = set()
+    if reserved_count == 1:
+        attack_candidates = _build_ticket_candidates(
+            front_candidates,
+            back_candidates,
+            strategy_mode="single_hit",
+            combo_weights=reserved_weights,
+            search_profile=search_profile,
+            history_size=history_size,
+            front_pair_window_hits=front_pair_window_hits,
+            back_pair_window_hits=back_pair_window_hits,
+        )
+        attack_candidates.sort(
+            key=lambda item: (
+                -_reserved_high_tier_candidate_score(item),
+                -item.jackpot_path_score,
+                -item.base_score,
+                item.crowd_penalty,
+                item.front_numbers,
+                item.back_numbers,
+            )
+        )
+        for candidate in attack_candidates:
+            key = (candidate.front_numbers, candidate.back_numbers)
+            if key in used_keys:
+                continue
+            index = len(built_schemes)
+            built_schemes.append(
+                _scheme_from_ticket_candidate(
+                    candidate,
+                    index=index,
+                    front_candidates=front_candidates,
+                    back_candidates=back_candidates,
+                    strategy=_reserved_high_tier_single_hit_strategy_text(index, reserved_count),
+                    rationale=_reserved_high_tier_single_hit_rationale_text(index, reserved_count),
+                )
+            )
+            used_keys.add(key)
+            if len(built_schemes) >= reserved_count:
+                return built_schemes
+
+    reserved_schemes = _build_multi_cover_front_core_schemes(
+        front_candidates,
+        back_candidates,
+        reserved_count,
+        combo_weights=reserved_weights,
+        search_profile=search_profile,
+        history_size=history_size,
+        front_pair_window_hits=front_pair_window_hits,
+        back_pair_window_hits=back_pair_window_hits,
+    )
+    for index, scheme in enumerate(reserved_schemes):
+        key = (tuple(scheme.front_numbers), tuple(scheme.back_numbers))
+        if key in used_keys:
+            continue
+        built_schemes.append(
+            scheme.model_copy(
+                update={
+                    "label": SCHEME_STYLES[index] if index < len(SCHEME_STYLES) else f"Scheme {index + 1}",
+                    "strategy": _reserved_high_tier_strategy_text(index, reserved_count),
+                    "rationale": _reserved_high_tier_rationale_text(index, reserved_count, front_core=True),
+                }
+            )
+        )
+        used_keys.add(key)
+        if len(built_schemes) >= reserved_count:
+            return built_schemes
+
+    reserved_candidates = _build_ticket_candidates(
+        front_candidates,
+        back_candidates,
+        strategy_mode="multi_cover",
+        combo_weights=reserved_weights,
+        search_profile=search_profile,
+        history_size=history_size,
+        front_pair_window_hits=front_pair_window_hits,
+        back_pair_window_hits=back_pair_window_hits,
+    )
+    if not reserved_candidates:
+        return built_schemes
+    reserved_candidates.sort(
+        key=lambda item: (
+            -_reserved_high_tier_candidate_score(item),
+            -item.front_score,
+            -item.back_score,
+            item.crowd_penalty,
+            item.front_numbers,
+            item.back_numbers,
+        )
+    )
+    for candidate in reserved_candidates:
+        key = (candidate.front_numbers, candidate.back_numbers)
+        if key in used_keys:
+            continue
+        index = len(built_schemes)
+        built_schemes.append(
+            _scheme_from_ticket_candidate(
+                candidate,
+                index=index,
+                front_candidates=front_candidates,
+                back_candidates=back_candidates,
+                strategy=_reserved_high_tier_strategy_text(index, reserved_count),
+                rationale=_reserved_high_tier_rationale_text(index, reserved_count, front_core=False),
+            )
+        )
+        used_keys.add(key)
+        if len(built_schemes) >= reserved_count:
+            break
+    return built_schemes
+
+
 def _apply_floor_harvest_schemes(
     base_schemes: list[FinalScheme],
     *,
@@ -1353,15 +1921,30 @@ def _apply_floor_harvest_schemes(
     back_candidates: list[CandidateBreakdown],
     combo_weights: dict[str, float] | None = None,
     search_profile: str = "full",
+    history_size: int | None = None,
+    front_pair_window_hits: dict[int, dict[tuple[int, int], int]] | None = None,
+    back_pair_window_hits: dict[int, dict[tuple[int, int], int]] | None = None,
 ) -> list[FinalScheme]:
     weights = {**DEFAULT_COMBO_WEIGHTS, **(combo_weights or {})}
     harvest_slots = int(max(0, round(weights.get("floor_harvest_slots", 0.0))))
     if harvest_slots <= 0 or len(base_schemes) < 4 or not history_desc:
         return base_schemes
 
+    preserved_probe_schemes: list[FinalScheme] = []
+    expected_probe_slots = int(max(0, round(weights.get("jackpot_probe_slots", 0.0))))
+    if weights.get("jackpot_mid_probe", 0.0) >= 0.5 and expected_probe_slots > 0:
+        expected_probe_slots = min(expected_probe_slots, max(0, len(base_schemes) - 3))
+        tail_candidates = base_schemes[-expected_probe_slots:] if expected_probe_slots > 0 else []
+        if tail_candidates and all("\u63a2\u7d22\u7968" in item.strategy for item in tail_candidates):
+            preserved_probe_schemes = list(tail_candidates)
+            base_schemes = base_schemes[: len(base_schemes) - len(preserved_probe_schemes)]
+
+    if len(base_schemes) < 4:
+        return base_schemes + preserved_probe_schemes
+
     supervised_windows = _build_multi_cover_supervised_windows(history_desc)
     if not supervised_windows:
-        return base_schemes
+        return base_schemes + preserved_probe_schemes
 
     ticket_candidates = _build_ticket_candidates(
         front_candidates,
@@ -1369,9 +1952,12 @@ def _apply_floor_harvest_schemes(
         strategy_mode="multi_cover",
         combo_weights=weights,
         search_profile=search_profile,
+        history_size=history_size,
+        front_pair_window_hits=front_pair_window_hits,
+        back_pair_window_hits=back_pair_window_hits,
     )
     if not ticket_candidates:
-        return base_schemes
+        return base_schemes + preserved_probe_schemes
 
     harvest_slots = min(harvest_slots, max(1, len(base_schemes) - 1))
     keep_count = max(1, len(base_schemes) - harvest_slots)
@@ -1432,8 +2018,19 @@ def _apply_floor_harvest_schemes(
             if len(rebuilt) >= len(base_schemes):
                 break
 
+    if preserved_probe_schemes:
+        for scheme in preserved_probe_schemes:
+            key = (tuple(scheme.front_numbers), tuple(scheme.back_numbers))
+            if key in used_keys:
+                continue
+            rebuilt.append(scheme)
+            used_keys.add(key)
+            if len(rebuilt) >= len(base_schemes) + len(preserved_probe_schemes):
+                break
+
     relabeled: list[FinalScheme] = []
-    for index, scheme in enumerate(rebuilt[: len(base_schemes)]):
+    target_count = len(base_schemes) + len(preserved_probe_schemes)
+    for index, scheme in enumerate(rebuilt[:target_count]):
         label = SCHEME_STYLES[index] if index < len(SCHEME_STYLES) else f"Scheme {index + 1}"
         relabeled.append(scheme.model_copy(update={"label": label}))
     return relabeled
@@ -2070,6 +2667,9 @@ def _build_multi_cover_front_core_schemes(
     *,
     combo_weights: dict[str, float] | None = None,
     search_profile: str = "full",
+    history_size: int | None = None,
+    front_pair_window_hits: dict[int, dict[tuple[int, int], int]] | None = None,
+    back_pair_window_hits: dict[int, dict[tuple[int, int], int]] | None = None,
 ) -> list[FinalScheme]:
     weights = {**DEFAULT_COMBO_WEIGHTS, **(combo_weights or {})}
     front_combos = _enumerate_scored_combinations(
@@ -2079,6 +2679,8 @@ def _build_multi_cover_front_core_schemes(
         zone="front",
         combo_weights=weights,
         search_profile=search_profile,
+        history_size=history_size,
+        pair_window_hits=front_pair_window_hits,
     )
     back_combos = _enumerate_scored_combinations(
         back_candidates,
@@ -2087,6 +2689,8 @@ def _build_multi_cover_front_core_schemes(
         zone="back",
         combo_weights=weights,
         search_profile=search_profile,
+        history_size=history_size,
+        pair_window_hits=back_pair_window_hits,
     )
     if not front_combos or not back_combos:
         return []
@@ -2193,8 +2797,29 @@ def _build_combo_based_schemes(
     strategy_mode: str,
     combo_weights: dict[str, float] | None = None,
     search_profile: str = "full",
+    history_size: int | None = None,
+    front_pair_window_hits: dict[int, dict[tuple[int, int], int]] | None = None,
+    back_pair_window_hits: dict[int, dict[tuple[int, int], int]] | None = None,
 ) -> list[FinalScheme]:
     weights = {**DEFAULT_COMBO_WEIGHTS, **(combo_weights or {})}
+    reserved_high_tier_count = 0
+    reserved_high_tier_schemes: list[FinalScheme] = []
+    if strategy_mode == "multi_cover":
+        reserved_high_tier_count = _reserved_high_tier_slot_count(
+            scheme_count,
+            combo_weights=weights,
+        )
+    if reserved_high_tier_count > 0:
+        reserved_high_tier_schemes = _build_reserved_high_tier_schemes(
+            front_candidates,
+            back_candidates,
+            reserved_count=reserved_high_tier_count,
+            combo_weights=weights,
+            search_profile=search_profile,
+            history_size=history_size,
+            front_pair_window_hits=front_pair_window_hits,
+            back_pair_window_hits=back_pair_window_hits,
+        )
     if strategy_mode == "multi_cover" and scheme_count >= 3 and weights.get("jackpot_front_core", 0.0) >= 0.5:
         core_schemes = _build_multi_cover_front_core_schemes(
             front_candidates,
@@ -2202,8 +2827,28 @@ def _build_combo_based_schemes(
             scheme_count,
             combo_weights=weights,
             search_profile=search_profile,
+            history_size=history_size,
+            front_pair_window_hits=front_pair_window_hits,
+            back_pair_window_hits=back_pair_window_hits,
         )
         if len(core_schemes) >= scheme_count:
+            if reserved_high_tier_schemes:
+                protected = list(reserved_high_tier_schemes[:reserved_high_tier_count])
+                used_keys = {(tuple(item.front_numbers), tuple(item.back_numbers)) for item in protected}
+                for scheme in core_schemes:
+                    key = (tuple(scheme.front_numbers), tuple(scheme.back_numbers))
+                    if key in used_keys:
+                        continue
+                    protected.append(scheme)
+                    used_keys.add(key)
+                    if len(protected) >= scheme_count:
+                        break
+                return [
+                    scheme.model_copy(
+                        update={"label": SCHEME_STYLES[index] if index < len(SCHEME_STYLES) else f"Scheme {index + 1}"}
+                    )
+                    for index, scheme in enumerate(protected[:scheme_count])
+                ]
             return core_schemes[:scheme_count]
 
     ticket_candidates = _build_ticket_candidates(
@@ -2212,9 +2857,23 @@ def _build_combo_based_schemes(
         strategy_mode=strategy_mode,
         combo_weights=weights,
         search_profile=search_profile,
+        history_size=history_size,
+        front_pair_window_hits=front_pair_window_hits,
+        back_pair_window_hits=back_pair_window_hits,
     )
     schemes: list[FinalScheme] = []
     used_keys: set[tuple[tuple[int, ...], tuple[int, ...]]] = set()
+    for scheme in reserved_high_tier_schemes[:reserved_high_tier_count]:
+        key = (tuple(scheme.front_numbers), tuple(scheme.back_numbers))
+        if key in used_keys:
+            continue
+        schemes.append(scheme)
+        used_keys.add(key)
+    reserved_summary_text = (
+        f"\u5e76\u63a7\u5236\u5927\u4f17\u5316\u6a21\u5f0f\uff1b\u9ed8\u8ba4\u628a\u524d {reserved_high_tier_count} \u7ec4\u9884\u7559\u7ed9 1-4 \u7b49\u5956\u51b2\u9ad8\uff0c"
+        if reserved_high_tier_count > 0
+        else "\u5e76\u63a7\u5236\u5927\u4f17\u5316\u6a21\u5f0f\uff0c"
+    )
 
     while len(schemes) < scheme_count and ticket_candidates:
         selection_context = _build_ticket_selection_context(schemes)
@@ -2258,14 +2917,15 @@ def _build_combo_based_schemes(
             )
         else:
             strategy_text = (
-                f"\u7b2c {len(schemes) + 1} \u7ec4\u6309\u8986\u76d6\u589e\u76ca\u9009\u53d6\uff1a"
+                f"\u7b2c {len(schemes) + 1} \u7ec4\u6309\u4fdd\u5e95\u547d\u4e2d\u7387\u9009\u53d6\uff1a"
                 "\u56f4\u7ed5\u9ad8\u5206\u524d\u533a\u6838\u5fc3\u505a 4+1 \u8f6e\u6362\uff0c\u540e\u533a\u7ee7\u7eed\u5206\u6563\uff0c"
-                "\u4f18\u5148\u517c\u987e\u56db\u7b49\u5956\u8986\u76d6\u5f62\u6001\u3002"
+                "\u4f18\u5148\u628a\u6b8b\u4f59\u7968\u6570\u7528\u5728\u4e94\u81f3\u4e03\u7b49\u5956\u7684\u7a33\u5b9a\u843d\u70b9\u4e0a\u3002"
             )
             rationale = (
                 "\u5019\u9009\u6c60\u5148\u6839\u636e\u5355\u53f7\u5f97\u5206\u548c\u7ec4\u5408\u7ed3\u6784\u751f\u6210\uff0c"
                 "\u518d\u7528\u8d2a\u5fc3\u4f18\u5316\u4fdd\u7559\u5f3a\u524d\u533a\u6838\u5fc3\u3001\u5206\u6563\u540e\u533a\u4f7f\u7528\u6b21\u6570\uff0c"
-                "\u5e76\u63a7\u5236\u5927\u4f17\u5316\u6a21\u5f0f\u3002"
+                f"{reserved_summary_text}"
+                "\u5269\u4f59\u7ec4\u6570\u4e13\u6ce8\u4e8e\u4fdd\u5e95\u547d\u4e2d\u7387\u3002"
             )
 
         schemes.append(
@@ -2311,6 +2971,9 @@ def _build_final_schemes(
     strategy_mode: str = "multi_cover",
     combo_weights: dict[str, float] | None = None,
     search_profile: str = "full",
+    history_size: int | None = None,
+    front_pair_window_hits: dict[int, dict[tuple[int, int], int]] | None = None,
+    back_pair_window_hits: dict[int, dict[tuple[int, int], int]] | None = None,
 ) -> list[FinalScheme]:
     """Build N schemes either for single-ticket strength or multi-ticket coverage."""
     combo_schemes = _build_combo_based_schemes(
@@ -2320,6 +2983,9 @@ def _build_final_schemes(
         strategy_mode=strategy_mode,
         combo_weights=combo_weights,
         search_profile=search_profile,
+        history_size=history_size,
+        front_pair_window_hits=front_pair_window_hits,
+        back_pair_window_hits=back_pair_window_hits,
     )
     if len(combo_schemes) >= scheme_count:
         return combo_schemes[:scheme_count]
@@ -2993,6 +3659,7 @@ def generate_divination(
         score_weights,
         history_size=context.history_size,
         window_hits=context.front_window_hits,
+        pair_window_hits=context.front_pair_window_hits,
     )
     back_scored = _score_candidates(
         range(1, 13),
@@ -3013,6 +3680,9 @@ def generate_divination(
         strategy_mode=strategy_mode,
         combo_weights=combo_weights,
         search_profile=search_profile,
+        history_size=context.history_size,
+        front_pair_window_hits=context.front_pair_window_hits,
+        back_pair_window_hits=context.back_pair_window_hits,
     )
     if strategy_mode == "multi_cover" and scheme_count >= 5:
         final_schemes = _apply_floor_harvest_schemes(
@@ -3022,6 +3692,9 @@ def generate_divination(
             back_candidates=back_candidates,
             combo_weights=combo_weights,
             search_profile=search_profile,
+            history_size=context.history_size,
+            front_pair_window_hits=context.front_pair_window_hits,
+            back_pair_window_hits=context.back_pair_window_hits,
         )
     all_draws_count = context.history_size if history_context is not None else len(history)
     ai_analysis, final_schemes = _build_ai_analysis(

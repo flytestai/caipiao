@@ -2,11 +2,14 @@ from __future__ import annotations
 
 from collections import Counter, deque
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import date
+from dataclasses import dataclass, field
+from datetime import date, datetime
 import json
 import logging
 import os
 import random
+from threading import Lock
+from uuid import uuid4
 from itertools import combinations
 from math import comb
 from typing import Callable
@@ -31,6 +34,9 @@ from app.models import (
     BacktestWalkForwardWindow,
     BacktestWindowSummary,
     DivinationResponse,
+    FullHistoryCacheProfileStatus,
+    FullHistoryCacheRebuildJob,
+    FullHistoryCacheStatus,
 )
 from app.services.meihua import (
     DEFAULT_COMBO_WEIGHTS,
@@ -39,7 +45,7 @@ from app.services.meihua import (
     build_history_feature_context,
     generate_divination,
 )
-from app.services.repository import build_backtest_stats, evaluate_scheme_against_draw, get_all_history_asc
+from app.services.repository import PRIZE_LEVEL_ORDER, build_backtest_stats, evaluate_scheme_against_draw, get_all_history_asc, get_meta
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +90,10 @@ THRESHOLD_SCAN_VALUES = [
 ]
 LIVE_TUNING_RECENT_ISSUES = 200
 BACKTEST_FAST_PATH_ENGINE_SUFFIX = " / Historical Fast Path"
+FULL_HISTORY_CACHE_ALGORITHM_VERSION = "full-history-cache-v2026-06-01-02"
+FULL_HISTORY_CACHE_MANIFEST_PREFIX = "full_history_cache"
+FULL_HISTORY_CACHE_MAX_JOBS = 12
+FULL_HISTORY_CACHE_MAX_PARALLEL_JOBS = 2
 FAST_TUNING_RECENT_ISSUES_THRESHOLD = 40
 FAST_TUNING_TARGET_ISSUES_THRESHOLD = 40
 FAST_TUNING_COARSE_QUOTA = 12
@@ -96,20 +106,98 @@ SMART_BALANCE_MODE = "smart_balance"
 SMART_BALANCE_WINDOW = 60
 SMART_BALANCE_GUARD_WINDOW = 420
 SMART_BALANCE_SWITCH_MARGIN = 0.02
-SMART_BALANCE_HIT_WEIGHT = 1.0
-SMART_BALANCE_WIN_WEIGHT = 0.0
-SMART_BALANCE_AMOUNT_DIVISOR = 400.0
+SMART_BALANCE_HIT_WEIGHT = 0.35
+SMART_BALANCE_WIN_WEIGHT = 0.08
+SMART_BALANCE_AMOUNT_DIVISOR = 900.0
+SMART_BALANCE_PRIZE_LEVEL_SCORE_WEIGHTS = {
+    "\u4e00\u7b49\u5956": 18.0,
+    "\u4e8c\u7b49\u5956": 12.0,
+    "\u4e09\u7b49\u5956": 6.8,
+    "\u56db\u7b49\u5956": 4.2,
+    "\u4e94\u7b49\u5956": 1.8,
+    "\u516d\u7b49\u5956": 0.75,
+    "\u4e03\u7b49\u5956": 0.22,
+}
 SMART_BALANCE_PROFILE_CANDIDATES = (
     ("multi_cover", "balanced+balanced_combo"),
     ("multi_cover", "frequency_revert+three_pack_low_tier_cover"),
     ("multi_cover", "frequency_revert+candidate_focus"),
+    ("multi_cover", "frequency_revert+candidate_focus_jackpot_floor_guarded"),
+    ("multi_cover", "frequency_revert+three_pack_hybrid_core"),
+    ("multi_cover", "frequency_revert+ultra_core_jackpot"),
     ("multi_cover", "frequency_revert+front_back_split"),
     ("single_hit", "balanced+balanced_combo"),
 )
 SMART_BALANCE_PROFILE_NAMES = tuple(
     f"{strategy_mode}:{profile_name}" for strategy_mode, profile_name in SMART_BALANCE_PROFILE_CANDIDATES
 )
+SMART_BALANCE_REPORT_PROFILE_MAP = {
+    "default_multi": "multi_cover:balanced+balanced_combo",
+    "lowtier_multi": "multi_cover:frequency_revert+three_pack_low_tier_cover",
+    "candidate_multi": "multi_cover:frequency_revert+candidate_focus",
+    "hybrid_guarded_multi": "multi_cover:frequency_revert+candidate_focus_jackpot_floor_guarded",
+    "front_back_multi": "multi_cover:frequency_revert+front_back_split",
+    "single_hit_default": "single_hit:balanced+balanced_combo",
+}
+SMART_BALANCE_REPORT_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "reports", "smart_balance_extreme_full_replay.json")
+)
+SMART_BALANCE_CANDIDATE_REPORT_FILES = {
+    "default_multi": "all_history_backtest_3_basic_multicover_compare.json",
+    "lowtier_multi": "optimized_full_backtest_3_basic_lowtier.json",
+    "candidate_multi": "optimized_full_backtest_3_basic_candidate_focus.json",
+    "front_back_multi": "optimized_full_backtest_3_basic_front_back_split.json",
+}
 _tuning_summary_cache: dict[tuple, BacktestTuningSummary] = {}
+_smart_balance_report_cache_signature: tuple[tuple[str, float, int], ...] | None = None
+_smart_balance_report_candidate_cache: dict[str, dict[str, dict]] | None = None
+_full_history_cache_executor = ThreadPoolExecutor(
+    max_workers=FULL_HISTORY_CACHE_MAX_PARALLEL_JOBS,
+    thread_name_prefix="full-history-cache",
+)
+_full_history_cache_jobs: dict[str, "_FullHistoryCacheJobState"] = {}
+_full_history_cache_lock = Lock()
+SMART_BALANCE_SIGNAL_SCORE_WEIGHTS = {
+    "top3_hit": 2.40,
+    "five_plus_two_hit": 2.10,
+    "five_plus_one_hit": 1.50,
+    "top4_hit": 1.10,
+    "four_plus_two_hit": 0.75,
+    "front_5_hit": 0.65,
+    "front_4plus_hit": 0.30,
+    "back_2plus_hit": 0.20,
+}
+
+
+@dataclass(frozen=True)
+class SmartBalanceLiveProfile:
+    profile_name: str
+    strategy_mode: str
+    display_name: str
+    score_weights: dict[str, float]
+    combo_weights: dict[str, float]
+    selection_reason: str
+
+
+@dataclass
+class _FullHistoryCacheJobState:
+    job_id: str
+    scheme_count: int
+    ticket_mode: str
+    status: str = "queued"
+    progress: float = 0.0
+    message: str | None = None
+    created_at: datetime = field(default_factory=datetime.utcnow)
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    error: str | None = None
+
+
+class FullHistoryCacheStaleError(ValueError):
+    def __init__(self, status: FullHistoryCacheStatus):
+        self.status = status
+        reasons = "; ".join(status.stale_reasons) if status.stale_reasons else "full-history cache is stale"
+        super().__init__(reasons)
 
 
 def _ticket_unit_price(ticket_mode: str) -> float:
@@ -1797,7 +1885,7 @@ def _build_live_calibration_history(
 ) -> list[dict]:
     target_draws = history_asc[-sample_issues:]
     history_context_cache = _build_history_context_cache(history_asc, target_draws)
-    calibration_history: list[dict] = []
+    prepared_targets: list[tuple[object, list, PrecomputedHistoryFeatures]] = []
     for target in target_draws:
         history_item = history_context_cache.get(target.issue)
         if not history_item:
@@ -1805,58 +1893,56 @@ def _build_live_calibration_history(
         prior_history_desc, history_context = history_item
         if history_context.history_size < 30:
             continue
+        prepared_targets.append((target, prior_history_desc, history_context))
+
+    def evaluate_calibration_target(target, prior_history_desc: list, history_context: PrecomputedHistoryFeatures) -> dict:
         seed_timestamp = _historical_seed_timestamp(target.draw_date)
-        divination = generate_divination(
-            prior_history_desc,
-            issue=target.issue,
-            timestamp=seed_timestamp,
+        raw = _evaluate_backtest_issue(
+            0,
+            target=target,
+            prior_history_desc=prior_history_desc,
+            history_context=history_context,
             scheme_count=scheme_count,
             strategy_mode=strategy_mode,
-            ai_config=ai_config,
-            target_draw_date=target.draw_date,
+            ticket_mode="basic",
+            backtest_ai_config=ai_config,
             score_weights=score_weights,
             combo_weights=combo_weights,
-            history_context=history_context,
+            tuning_profile=None,
+            include_baselines=False,
             search_profile="full",
         )
-        divination = _apply_runtime_divination_adjustments(
-            divination=divination,
-            prior_history_desc=prior_history_desc,
-            issue=target.issue,
-            target_draw_date=target.draw_date,
-            seed_timestamp=seed_timestamp,
-            scheme_count=scheme_count,
-            strategy_mode=strategy_mode,
-            ai_config=ai_config,
-            score_weights=score_weights,
-            combo_weights=combo_weights,
-            history_context=history_context,
-        )
-        evaluations = [
-            evaluate_scheme_against_draw(
-                target,
-                front_numbers=scheme.front_numbers,
-                back_numbers=scheme.back_numbers,
-            )
-            for scheme in divination.final_schemes
-        ]
-        full_hit = any(item.status == "won" for item in evaluations)
+        evaluations = raw["scheme_evaluations"]
+        full_hit = any(item.get("status") == "won" for item in evaluations)
         label_hits = {
-            scheme.label: 1 if evaluation.status == "won" else 0
-            for scheme, evaluation in zip(divination.final_schemes, evaluations)
+            str(evaluation.get("label")): 1 if evaluation.get("status") == "won" else 0
+            for evaluation in evaluations
+            if evaluation.get("label")
         }
-        calibration_history.append(
-            {
-                "raw_confidence": _issue_confidence(divination.final_schemes),
-                "hit": 1 if full_hit else 0,
-                "raw_front_confidence": _zone_scheme_confidence(divination.final_schemes, divination.front_candidates, zone="front"),
-                "front_hit": 1 if any(item.front_match_count >= 3 for item in evaluations) else 0,
-                "raw_back_confidence": _zone_scheme_confidence(divination.final_schemes, divination.back_candidates, zone="back"),
-                "back_hit": 1 if any(item.back_match_count >= 1 for item in evaluations) else 0,
-                "issue_mod_7": int(target.issue) % 7,
-                "label_hits": label_hits,
-            }
-        )
+        return {
+            "raw_confidence": float(raw.get("issue_confidence") or 0.0),
+            "hit": 1 if full_hit else 0,
+            "raw_front_confidence": float(raw.get("front_confidence") or 0.0),
+            "front_hit": 1 if any(int(item.get("front_match_count") or 0) >= 3 for item in evaluations) else 0,
+            "raw_back_confidence": float(raw.get("back_confidence") or 0.0),
+            "back_hit": 1 if any(int(item.get("back_match_count") or 0) >= 1 for item in evaluations) else 0,
+            "issue_mod_7": int(target.issue) % 7,
+            "label_hits": label_hits,
+        }
+
+    calibration_history: list[dict] = []
+    worker_count = _backtest_parallel_workers(len(prepared_targets), ai_replay_mode="local_only")
+    if worker_count <= 1:
+        for target, prior_history_desc, history_context in prepared_targets:
+            calibration_history.append(evaluate_calibration_target(target, prior_history_desc, history_context))
+    else:
+        with ThreadPoolExecutor(max_workers=worker_count, thread_name_prefix="live-calibration") as executor:
+            future_map = [
+                executor.submit(evaluate_calibration_target, target, prior_history_desc, history_context)
+                for target, prior_history_desc, history_context in prepared_targets
+            ]
+            for future in as_completed(future_map):
+                calibration_history.append(future.result())
     return calibration_history
 
 
@@ -1869,15 +1955,33 @@ def run_divination_with_backtest_logic(
 ) -> DivinationResponse:
     history_asc = get_all_history_asc()
     history_desc = history_asc[::-1]
-    recent_issues = min(LIVE_TUNING_RECENT_ISSUES, max(36, len(history_asc) - 1))
-    tuning_summary = _build_tuning_summary(
-        history_asc,
-        recent_issues=recent_issues,
-        scheme_count=scheme_count,
-        strategy_mode=strategy_mode,
-        ticket_mode="basic",
-    )
-    score_weights, combo_weights = _resolve_tuning_weights(tuning_summary)
+    assert_full_history_cache_valid(scheme_count, "basic")
+    recent_issues = len(history_asc)
+    requested_strategy_mode = strategy_mode
+    smart_live_profile: SmartBalanceLiveProfile | None = None
+    mode_live_profile: SmartBalanceLiveProfile | None = None
+    if requested_strategy_mode == SMART_BALANCE_MODE:
+        smart_live_profile = _select_live_smart_balance_profile(history_asc, scheme_count=scheme_count, ticket_mode="basic")
+        effective_strategy_mode = smart_live_profile.strategy_mode
+        score_weights = smart_live_profile.score_weights
+        combo_weights = smart_live_profile.combo_weights
+        tuning_profile = f"智能平衡 / {smart_live_profile.display_name}"
+    else:
+        effective_strategy_mode = strategy_mode
+        mode_live_profile = _select_full_history_profile_for_mode(
+            history_asc,
+            effective_strategy_mode,
+            scheme_count=scheme_count,
+            ticket_mode="basic",
+        )
+        if mode_live_profile:
+            score_weights = mode_live_profile.score_weights
+            combo_weights = mode_live_profile.combo_weights
+            tuning_profile = f"Full History / {mode_live_profile.display_name}"
+        else:
+            score_weights = DEFAULT_SCORE_WEIGHTS.copy()
+            combo_weights = DEFAULT_COMBO_WEIGHTS.copy()
+            tuning_profile = "Full History / Default Weights"
     history_context = build_history_feature_context(history_desc)
     use_ai = _external_ai_ready(ai_config)
     divination = generate_divination(
@@ -1885,7 +1989,7 @@ def run_divination_with_backtest_logic(
         issue=issue,
         timestamp=timestamp,
         scheme_count=scheme_count,
-        strategy_mode=strategy_mode,
+        strategy_mode=effective_strategy_mode,
         ai_config=ai_config if use_ai else None,
         score_weights=score_weights,
         combo_weights=combo_weights,
@@ -1900,41 +2004,99 @@ def run_divination_with_backtest_logic(
         prior_history_desc=history_desc,
         issue=live_issue,
         scheme_count=scheme_count,
-        strategy_mode=strategy_mode,
+        strategy_mode=effective_strategy_mode,
         ai_config=None,
         score_weights=score_weights,
         combo_weights=combo_weights,
         history_context=history_context,
         metadata=runtime_metadata,
     )
-    calibration_history = _build_live_calibration_history(
-        history_asc,
-        sample_issues=recent_issues,
-        scheme_count=scheme_count,
-        strategy_mode=strategy_mode,
-        ai_config=None,
-        score_weights=score_weights,
-        combo_weights=combo_weights,
+    calibration_history = (
+        []
+        if smart_live_profile
+        else (
+            _full_history_report_calibration(
+                history_asc,
+                mode_live_profile.profile_name,
+                scheme_count=scheme_count,
+                ticket_mode="basic",
+            )
+            if mode_live_profile
+            else []
+        )
     )
+    if not smart_live_profile and not mode_live_profile and len(calibration_history) < 30:
+        calibration_history = _get_live_calibration_history(
+            history_asc,
+            sample_issues=recent_issues,
+            scheme_count=scheme_count,
+            strategy_mode=effective_strategy_mode,
+            ai_config=None,
+            score_weights=score_weights,
+            combo_weights=combo_weights,
+        )
     dynamic_threshold = _dynamic_confidence_threshold(
-        strategy_mode=strategy_mode,
+        strategy_mode=effective_strategy_mode,
         scheme_count=scheme_count,
         front_candidates=divination.front_candidates,
         back_candidates=divination.back_candidates,
     )
+    count_policy = (
+        f"smart_balance_{SMART_BALANCE_WINDOW}_{SMART_BALANCE_GUARD_WINDOW}"
+        if smart_live_profile
+        else "must_issue_value_ladder" if effective_strategy_mode != "single_hit" else "zone_ladder"
+    )
     divination, chosen_scheme_count = _apply_runtime_decision(
         divination=divination,
-        tuning_profile=tuning_summary.applied_display_name or tuning_summary.selected_display_name,
-        strategy_mode=strategy_mode,
+        tuning_profile=tuning_profile,
+        strategy_mode=effective_strategy_mode,
         scheme_count=scheme_count,
         calibration_history=calibration_history,
-        count_policy="must_issue_value_ladder" if strategy_mode != "single_hit" else "zone_ladder",
+        count_policy=count_policy,
         dynamic_threshold=dynamic_threshold,
         issue=live_issue,
         deep_search_triggered=bool(runtime_metadata.get("deep_search_triggered", False)),
         deep_search_reason=runtime_metadata.get("deep_search_reason"),
         min_visible_schemes=scheme_count,
     )
+    if smart_live_profile:
+        divination.strategy_mode = SMART_BALANCE_MODE  # type: ignore[assignment]
+        divination.count_policy = count_policy
+        divination.should_observe = False
+        divination.decision_tier = SMART_BALANCE_MODE
+        divination.calibrated_confidence = divination.issue_confidence
+        divination.applied_threshold = 0.0
+        divination.front_calibrated_confidence = divination.front_confidence
+        divination.back_calibrated_confidence = divination.back_confidence
+        divination.decision_reason = (
+            f"{smart_live_profile.selection_reason} 智能平衡模式不做观望删减，按当前输入保留 {len(divination.final_schemes)} 组推演号码。"
+        ).strip()
+        divination.ai_analysis.engine = f"{divination.ai_analysis.engine} / Smart Balance"
+        divination.ai_analysis.key_factors = [
+            f"智能平衡当前档位：{smart_live_profile.display_name}。",
+            *divination.ai_analysis.key_factors[:4],
+        ]
+        divination.ai_analysis.final_advice = (
+            f"智能平衡已按 {smart_live_profile.display_name} 生成 {len(divination.final_schemes)} 组号码。"
+            f"{divination.ai_analysis.final_advice}"
+        )
+    elif mode_live_profile:
+        divination.should_observe = False
+        if divination.decision_tier == "observe":
+            divination.decision_tier = "full_history"
+        divination.decision_reason = (
+            f"{mode_live_profile.selection_reason} Full-history mode keeps the requested {len(divination.final_schemes)} schemes for prediction. "
+            f"{divination.decision_reason or ''}"
+        ).strip()
+        divination.ai_analysis.key_factors = [
+            f"Full-history profile: {mode_live_profile.display_name}.",
+            *divination.ai_analysis.key_factors[:4],
+        ]
+        divination.ai_analysis.final_advice = (
+            f"Full-history replay selected {mode_live_profile.display_name}; "
+            f"generated {len(divination.final_schemes)} schemes. "
+            f"{divination.ai_analysis.final_advice}"
+        )
     return divination
 
 
@@ -2493,6 +2655,1327 @@ def _smart_balance_candidate_profiles() -> list[tuple[str, str, str, dict[str, f
             )
         )
     return profiles
+
+
+def _active_live_smart_balance_candidate_profiles(
+    candidate_results: dict[str, dict[str, dict]],
+) -> list[tuple[str, str, str, dict[str, float], dict[str, float]]]:
+    candidate_profiles = _smart_balance_candidate_profiles()
+    active_profiles = [profile for profile in candidate_profiles if candidate_results.get(profile[0])]
+    return active_profiles or candidate_profiles
+
+
+def _smart_balance_profile_from_candidate_name(candidate_name: str | None, selection_reason: str) -> SmartBalanceLiveProfile:
+    candidate_profiles = _smart_balance_candidate_profiles()
+    if not candidate_profiles:
+        raise ValueError("智能平衡候选档位为空。")
+    profile_lookup = {profile_name: profile for profile_name, *profile in candidate_profiles}
+    resolved_name = candidate_name if candidate_name in profile_lookup else candidate_profiles[0][0]
+    candidate_strategy_mode, display_name, score_weights, combo_weights = profile_lookup[resolved_name]
+    return SmartBalanceLiveProfile(
+        profile_name=resolved_name,
+        strategy_mode=candidate_strategy_mode,
+        display_name=display_name,
+        score_weights=score_weights.copy(),
+        combo_weights=combo_weights.copy(),
+        selection_reason=selection_reason,
+    )
+
+
+def _history_lag_after_issue(history_asc: list, issue: str) -> int | None:
+    if not issue:
+        return None
+    for index, draw in enumerate(history_asc):
+        if str(draw.issue) == issue:
+            return max(0, len(history_asc) - index - 1)
+    return None
+
+
+def _smart_balance_score_text(value: object) -> str:
+    try:
+        return f"{float(value):.3f}"
+    except (TypeError, ValueError):
+        return "n/a"
+
+
+def _normalize_ticket_mode(ticket_mode: str) -> str:
+    return "additional" if ticket_mode == "additional" else "basic"
+
+
+def _cache_timestamp() -> str:
+    return datetime.now().astimezone().isoformat(timespec="seconds")
+
+
+def _parse_cache_datetime(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _expected_full_history_cache_issue_count(history_asc: list) -> int:
+    if not history_asc:
+        return 0
+    context_cache = _build_history_context_cache(history_asc, history_asc)
+    return sum(
+        1
+        for draw in history_asc
+        if (history_item := context_cache.get(draw.issue)) and history_item[1].history_size >= 30
+    )
+
+
+def _full_history_cache_key(scheme_count: int, ticket_mode: str) -> str:
+    safe_ticket_mode = _normalize_ticket_mode(ticket_mode)
+    return f"{scheme_count}_{safe_ticket_mode}"
+
+
+def _full_history_cache_manifest_path(scheme_count: int, ticket_mode: str) -> str:
+    return _smart_balance_report_file_path(
+        f"{FULL_HISTORY_CACHE_MANIFEST_PREFIX}_{_full_history_cache_key(scheme_count, ticket_mode)}.manifest.json"
+    )
+
+
+def _full_history_cache_report_name(scheme_count: int, ticket_mode: str, profile: str) -> str:
+    return f"{FULL_HISTORY_CACHE_MANIFEST_PREFIX}_{_full_history_cache_key(scheme_count, ticket_mode)}_{profile}.json"
+
+
+def _full_history_cache_profile_specs(scheme_count: int, ticket_mode: str) -> dict[str, dict[str, object]]:
+    return {
+        "default_multi": {
+            "candidate_name": "multi_cover:balanced+balanced_combo",
+            "strategy_mode": "multi_cover",
+            "tuning_profile_override": "balanced+balanced_combo",
+            "file_name": _full_history_cache_report_name(scheme_count, ticket_mode, "default_multi"),
+        },
+        "lowtier_multi": {
+            "candidate_name": "multi_cover:frequency_revert+three_pack_low_tier_cover",
+            "strategy_mode": "multi_cover",
+            "tuning_profile_override": "frequency_revert+three_pack_low_tier_cover",
+            "file_name": _full_history_cache_report_name(scheme_count, ticket_mode, "lowtier_multi"),
+        },
+        "candidate_multi": {
+            "candidate_name": "multi_cover:frequency_revert+candidate_focus",
+            "strategy_mode": "multi_cover",
+            "tuning_profile_override": "frequency_revert+candidate_focus",
+            "file_name": _full_history_cache_report_name(scheme_count, ticket_mode, "candidate_multi"),
+        },
+        "hybrid_guarded_multi": {
+            "candidate_name": "multi_cover:frequency_revert+candidate_focus_jackpot_floor_guarded",
+            "strategy_mode": "multi_cover",
+            "tuning_profile_override": "frequency_revert+candidate_focus_jackpot_floor_guarded",
+            "file_name": _full_history_cache_report_name(scheme_count, ticket_mode, "hybrid_guarded_multi"),
+        },
+        "front_back_multi": {
+            "candidate_name": "multi_cover:frequency_revert+front_back_split",
+            "strategy_mode": "multi_cover",
+            "tuning_profile_override": "frequency_revert+front_back_split",
+            "file_name": _full_history_cache_report_name(scheme_count, ticket_mode, "front_back_multi"),
+        },
+        "single_hit_default": {
+            "candidate_name": "single_hit:balanced+balanced_combo",
+            "strategy_mode": "single_hit",
+            "tuning_profile_override": "balanced+balanced_combo",
+            "file_name": _full_history_cache_report_name(scheme_count, ticket_mode, "single_hit_default"),
+        },
+    }
+
+
+def _serialize_full_history_cache_job(job: _FullHistoryCacheJobState) -> FullHistoryCacheRebuildJob:
+    return FullHistoryCacheRebuildJob(
+        job_id=job.job_id,
+        status=job.status,  # type: ignore[arg-type]
+        progress=job.progress,
+        message=job.message,
+        scheme_count=job.scheme_count,
+        ticket_mode=job.ticket_mode,  # type: ignore[arg-type]
+        created_at=job.created_at,
+        started_at=job.started_at,
+        finished_at=job.finished_at,
+        error=job.error,
+    )
+
+
+def _active_full_history_cache_job(scheme_count: int, ticket_mode: str) -> FullHistoryCacheRebuildJob | None:
+    with _full_history_cache_lock:
+        for job in sorted(_full_history_cache_jobs.values(), key=lambda item: item.created_at, reverse=True):
+            if job.scheme_count == scheme_count and job.ticket_mode == ticket_mode and job.status in {"queued", "running"}:
+                return _serialize_full_history_cache_job(job)
+    return None
+
+
+def _load_full_history_cache_manifest(scheme_count: int, ticket_mode: str) -> dict | None:
+    path = _full_history_cache_manifest_path(scheme_count, ticket_mode)
+    try:
+        with open(path, "r", encoding="utf-8") as file_obj:
+            manifest = json.load(file_obj)
+        return manifest if isinstance(manifest, dict) else None
+    except FileNotFoundError:
+        return None
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Failed to read full-history cache manifest: %s", exc)
+        return None
+
+
+def _load_json_report(file_name: str) -> dict | None:
+    path = _smart_balance_report_file_path(file_name)
+    try:
+        with open(path, "r", encoding="utf-8") as file_obj:
+            payload = json.load(file_obj)
+        return payload if isinstance(payload, dict) else None
+    except FileNotFoundError:
+        return None
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Failed to read report %s: %s", file_name, exc)
+        return None
+
+
+def _write_json_report_atomic(file_name: str, payload: dict) -> None:
+    path = _smart_balance_report_file_path(file_name)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    temp_path = f"{path}.{uuid4().hex}.tmp"
+    with open(temp_path, "w", encoding="utf-8") as file_obj:
+        json.dump(payload, file_obj, ensure_ascii=False, indent=2, default=str)
+        file_obj.write("\n")
+    os.replace(temp_path, path)
+
+
+def _trim_full_history_cache_jobs() -> None:
+    if len(_full_history_cache_jobs) <= FULL_HISTORY_CACHE_MAX_JOBS:
+        return
+    removable = sorted(_full_history_cache_jobs.values(), key=lambda item: item.created_at)
+    while removable and len(_full_history_cache_jobs) > FULL_HISTORY_CACHE_MAX_JOBS:
+        item = removable.pop(0)
+        if item.status in {"completed", "failed"}:
+            _full_history_cache_jobs.pop(item.job_id, None)
+
+
+def _update_full_history_cache_job(
+    job_id: str,
+    *,
+    status: str | None = None,
+    progress: float | None = None,
+    message: str | None = None,
+    error: str | None = None,
+    started_at: datetime | None = None,
+    finished_at: datetime | None = None,
+) -> None:
+    with _full_history_cache_lock:
+        job = _full_history_cache_jobs.get(job_id)
+        if not job:
+            return
+        if status is not None:
+            job.status = status
+        if progress is not None:
+            job.progress = max(0.0, min(1.0, progress))
+        if message is not None:
+            job.message = message
+        if error is not None:
+            job.error = error
+        if started_at is not None:
+            job.started_at = started_at
+        if finished_at is not None:
+            job.finished_at = finished_at
+
+
+def _report_profile_status(
+    *,
+    profile: str,
+    mode: str,
+    file_name: str | None,
+    latest_issue: str | None,
+    total_draws: int,
+    expected_issue_count: int,
+    scheme_count: int,
+    ticket_mode: str,
+) -> FullHistoryCacheProfileStatus:
+    if not file_name:
+        return FullHistoryCacheProfileStatus(profile=profile, mode=mode, reason="manifest missing file name")
+    path = _smart_balance_report_file_path(file_name)
+    if not os.path.exists(path):
+        return FullHistoryCacheProfileStatus(profile=profile, mode=mode, file_name=file_name, reason="report file missing")
+    report = _load_json_report(file_name)
+    if not report:
+        return FullHistoryCacheProfileStatus(
+            profile=profile,
+            mode=mode,
+            file_name=file_name,
+            exists=True,
+            reason="report file unreadable",
+        )
+    issues = report.get("issues") if isinstance(report, dict) else None
+    issue_count = len(issues) if isinstance(issues, list) else 0
+    report_latest_issue = str(issues[-1].get("issue")) if issue_count and isinstance(issues[-1], dict) else None
+    report_scheme_count = int(report.get("scheme_count") or 0) if isinstance(report, dict) else 0
+    report_ticket_mode = str(report.get("ticket_mode") or "") if isinstance(report, dict) else ""
+    requested_issues = int(report.get("requested_issues") or 0) if isinstance(report, dict) else 0
+    total_issues = int(report.get("total_issues") or 0) if isinstance(report, dict) else 0
+    metadata = report.get("full_history_cache") if isinstance(report, dict) else None
+    generated_at = metadata.get("generated_at") if isinstance(metadata, dict) else None
+    reason = None
+    if not isinstance(metadata, dict):
+        reason = "cache metadata missing"
+    elif str(metadata.get("profile") or "") != profile:
+        reason = "profile metadata mismatch"
+    elif int(metadata.get("scheme_count") or 0) != scheme_count:
+        reason = f"metadata scheme count mismatch: {metadata.get('scheme_count')}/{scheme_count}"
+    elif str(metadata.get("ticket_mode") or "") != ticket_mode:
+        reason = f"metadata ticket mode mismatch: {metadata.get('ticket_mode')}/{ticket_mode}"
+    elif total_issues != issue_count:
+        reason = f"total issue mismatch: {total_issues}/{issue_count}"
+    elif issue_count > expected_issue_count:
+        reason = f"issue count exceeds history: {issue_count}/{expected_issue_count}"
+    elif report_latest_issue == latest_issue and issue_count != expected_issue_count:
+        reason = f"issue count mismatch: {issue_count}/{expected_issue_count}"
+    elif report_latest_issue != latest_issue:
+        reason = f"latest draw not cached yet: {report_latest_issue}/{latest_issue}"
+    elif requested_issues not in {0, total_draws, issue_count, total_issues}:
+        reason = f"requested issue mismatch: {requested_issues}/{total_draws}"
+    elif report_scheme_count != scheme_count:
+        reason = f"scheme count mismatch: {report_scheme_count}/{scheme_count}"
+    elif report_ticket_mode != ticket_mode:
+        reason = f"ticket mode mismatch: {report_ticket_mode}/{ticket_mode}"
+    return FullHistoryCacheProfileStatus(
+        profile=profile,
+        mode=mode,
+        file_name=file_name,
+        exists=True,
+        valid=reason is None,
+        issue_count=issue_count,
+        latest_issue=report_latest_issue,
+        generated_at=generated_at,
+        reason=reason,
+    )
+
+
+def get_full_history_cache_status(scheme_count: int = 3, ticket_mode: str = "basic") -> FullHistoryCacheStatus:
+    ticket_mode = _normalize_ticket_mode(ticket_mode)
+    history_asc = get_all_history_asc()
+    latest_issue = str(history_asc[-1].issue) if history_asc else None
+    total_draws = len(history_asc)
+    expected_issue_count = _expected_full_history_cache_issue_count(history_asc)
+    manifest = _load_full_history_cache_manifest(scheme_count, ticket_mode)
+    specs = _full_history_cache_profile_specs(scheme_count, ticket_mode)
+    active_job = _active_full_history_cache_job(scheme_count, ticket_mode)
+    stale_reasons: list[str] = []
+    generated_at: str | None = None
+    profile_statuses: list[FullHistoryCacheProfileStatus] = []
+
+    if not manifest:
+        stale_reasons.append("full-history cache manifest is missing")
+        for profile, spec in specs.items():
+            if active_job:
+                profile_statuses.append(
+                    FullHistoryCacheProfileStatus(
+                        profile=profile,
+                        mode=str(spec["strategy_mode"]),
+                        file_name=str(spec["file_name"]),
+                        reason="rebuild running",
+                    )
+                )
+            else:
+                profile_statuses.append(
+                    _report_profile_status(
+                        profile=profile,
+                        mode=str(spec["strategy_mode"]),
+                        file_name=str(spec["file_name"]),
+                        latest_issue=latest_issue,
+                        total_draws=total_draws,
+                        expected_issue_count=expected_issue_count,
+                        scheme_count=scheme_count,
+                        ticket_mode=ticket_mode,
+                    )
+                )
+    else:
+        generated_at = str(manifest.get("generated_at") or "")
+        source_snapshot_at = str(manifest.get("source_snapshot_at") or generated_at)
+        if int(manifest.get("scheme_count") or 0) != scheme_count:
+            stale_reasons.append("scheme count does not match cache")
+        if str(manifest.get("ticket_mode") or "") != ticket_mode:
+            stale_reasons.append("ticket mode does not match cache")
+        profiles = manifest.get("profiles") if isinstance(manifest.get("profiles"), dict) else {}
+        for profile, spec in specs.items():
+            manifest_profile = profiles.get(profile) if isinstance(profiles, dict) else None
+            file_name = (
+                str(manifest_profile.get("file_name"))
+                if isinstance(manifest_profile, dict) and manifest_profile.get("file_name")
+                else str(spec["file_name"])
+            )
+            profile_status = _report_profile_status(
+                profile=profile,
+                mode=str(spec["strategy_mode"]),
+                file_name=file_name,
+                latest_issue=latest_issue,
+                total_draws=total_draws,
+                expected_issue_count=expected_issue_count,
+                scheme_count=scheme_count,
+                ticket_mode=ticket_mode,
+            )
+            if not profile_status.valid:
+                stale_reasons.append(f"{profile} cache invalid: {profile_status.reason}")
+            profile_statuses.append(profile_status)
+
+    invalidated_at = get_meta("full_history_cache_invalidated_at")
+    if invalidated_at and generated_at:
+        invalidated_time = _parse_cache_datetime(invalidated_at)
+        generated_time = _parse_cache_datetime(source_snapshot_at if manifest else generated_at)
+        if not invalidated_time or not generated_time:
+            stale_reasons.append("cache invalidation timestamp is invalid")
+        elif invalidated_time > generated_time:
+            stale_reasons.append("draw data changed after cache generation")
+    elif invalidated_at and not generated_at:
+        stale_reasons.append("draw data changed after cache generation")
+
+    return FullHistoryCacheStatus(
+        algorithm_version=FULL_HISTORY_CACHE_ALGORITHM_VERSION,
+        latest_issue=latest_issue,
+        total_draws=total_draws,
+        expected_issue_count=expected_issue_count,
+        scheme_count=scheme_count,
+        ticket_mode=ticket_mode,  # type: ignore[arg-type]
+        valid=not stale_reasons and all(item.valid for item in profile_statuses),
+        stale_reasons=list(dict.fromkeys(stale_reasons)),
+        generated_at=generated_at or None,
+        invalidated_at=invalidated_at,
+        profiles=profile_statuses,
+        active_job=active_job,
+    )
+
+
+def assert_full_history_cache_valid(scheme_count: int, ticket_mode: str = "basic") -> FullHistoryCacheStatus:
+    status = get_full_history_cache_status(scheme_count=scheme_count, ticket_mode=ticket_mode)
+    if not status.valid:
+        raise FullHistoryCacheStaleError(status)
+    return status
+
+
+def _clear_smart_balance_candidate_cache() -> None:
+    global _smart_balance_report_cache_signature, _smart_balance_report_candidate_cache
+    _smart_balance_report_cache_signature = None
+    _smart_balance_report_candidate_cache = None
+
+
+def _full_history_cache_manifest_profile_entries(
+    specs: dict[str, dict[str, object]],
+    report_metadata: dict[str, dict],
+) -> dict[str, dict[str, object]]:
+    profiles: dict[str, dict[str, object]] = {}
+    for profile, spec in specs.items():
+        metadata = report_metadata.get(profile, {})
+        profiles[profile] = {
+            "candidate_name": spec.get("candidate_name"),
+            "strategy_mode": spec.get("strategy_mode"),
+            "tuning_profile_override": spec.get("tuning_profile_override"),
+            "file_name": spec.get("file_name"),
+            "generated_at": metadata.get("generated_at"),
+            "total_issues": metadata.get("total_issues"),
+            "total_generated_schemes": metadata.get("total_generated_schemes"),
+            "issue_hit_rate": metadata.get("issue_hit_rate"),
+            "overall_win_rate": metadata.get("overall_win_rate"),
+            "total_prize_amount": metadata.get("total_prize_amount"),
+            "net_profit": metadata.get("net_profit"),
+        }
+    return profiles
+
+
+def _incremental_full_history_cache_window(
+    *,
+    report: dict | None,
+    history_asc: list,
+    latest_issue: str | None,
+    expected_issue_count: int,
+) -> tuple[list[dict], int]:
+    if not isinstance(report, dict):
+        return [], len(history_asc)
+    raw_issues = report.get("issues")
+    if not isinstance(raw_issues, list):
+        return [], len(history_asc)
+    cached_issues = [item for item in raw_issues if isinstance(item, dict)]
+    if not cached_issues:
+        return [], len(history_asc)
+
+    cached_latest_issue = str(cached_issues[-1].get("issue") or "")
+    history_positions = {str(draw.issue): index for index, draw in enumerate(history_asc)}
+    cached_latest_index = history_positions.get(cached_latest_issue)
+    if cached_latest_index is None:
+        return [], len(history_asc)
+
+    cached_expected_issue_count = _expected_full_history_cache_issue_count(history_asc[: cached_latest_index + 1])
+    if len(cached_issues) != cached_expected_issue_count:
+        return [], len(history_asc)
+
+    missing_recent_issues = max(0, len(history_asc) - cached_latest_index - 1)
+    if missing_recent_issues == 0:
+        if cached_latest_issue == str(latest_issue or "") and len(cached_issues) == expected_issue_count:
+            return cached_issues, 0
+        return [], len(history_asc)
+    return cached_issues, missing_recent_issues
+
+
+def _build_full_history_cache_report_payload(
+    *,
+    existing_report: dict | None,
+    response: BacktestResponse,
+    combined_issue_rows: list[dict],
+    recent_issues: int,
+    scheme_count: int,
+    strategy_mode: str,
+    ticket_mode: str,
+) -> dict:
+    stats = build_backtest_stats(combined_issue_rows)  # type: ignore[arg-type]
+    issue_rows = [item.model_dump(mode="json") for item in stats.issues]
+
+    payload = response.model_dump(mode="json")
+    if isinstance(existing_report, dict):
+        payload = {**existing_report, **payload}
+
+    payload["recent_issues"] = recent_issues
+    payload["requested_issues"] = recent_issues
+    payload["skipped_issues"] = 0
+    payload["scheme_count"] = scheme_count
+    payload["strategy_mode"] = strategy_mode
+    payload["ticket_mode"] = ticket_mode
+    payload["ai_replay_mode"] = "local_only"
+    payload["total_issues"] = stats.total_issues
+    payload["total_generated_schemes"] = stats.total_generated_schemes
+    payload["won_schemes"] = stats.won_schemes
+    payload["total_prize_amount"] = stats.total_prize_amount
+    payload["total_cost"] = stats.total_cost
+    payload["net_profit"] = stats.net_profit
+    payload["overall_win_rate"] = stats.overall_win_rate
+    payload["issue_hit_rate"] = stats.issue_hit_rate
+    payload["prize_rates"] = [item.model_dump(mode="json") for item in stats.prize_rates]
+    payload["prize_level_breakdown"] = [item.model_dump(mode="json") for item in stats.prize_level_breakdown]
+    payload["issues"] = issue_rows
+    payload["coverage_metrics"] = stats.coverage_metrics.model_dump(mode="json")
+    payload["max_drawdown"] = _max_drawdown(issue_rows)
+    payload["max_miss_streak"] = _max_miss_streak(issue_rows)
+    payload["theoretical_single_win_rate"] = round(_theoretical_single_win_rate(), 6)
+    payload["window_summaries"] = [
+        item.model_dump(mode="json")
+        for item in _build_window_summaries(issue_rows)
+    ]
+    payload.setdefault("benchmarks", [])
+    payload.setdefault("mode_comparison", [])
+    payload.setdefault("issue_comparison", [])
+    payload.setdefault("threshold_scan", [])
+    return payload
+
+
+def _run_full_history_cache_rebuild_job(job_id: str) -> None:
+    _update_full_history_cache_job(
+        job_id,
+        status="running",
+        progress=0.0,
+        message="Preparing full-history cache update",
+        started_at=datetime.utcnow(),
+    )
+    try:
+        with _full_history_cache_lock:
+            job = _full_history_cache_jobs.get(job_id)
+            if not job:
+                return
+            scheme_count = job.scheme_count
+            ticket_mode = _normalize_ticket_mode(job.ticket_mode)
+
+        source_snapshot_at = _cache_timestamp()
+        history_asc = get_all_history_asc()
+        total_draws = len(history_asc)
+        latest_issue = str(history_asc[-1].issue) if history_asc else None
+        expected_issue_count = _expected_full_history_cache_issue_count(history_asc)
+        specs = _full_history_cache_profile_specs(scheme_count, ticket_mode)
+        report_metadata: dict[str, dict] = {}
+        profile_items = list(specs.items())
+        profile_count = max(1, len(profile_items))
+
+        for profile_index, (profile, spec) in enumerate(profile_items):
+            base_progress = profile_index / profile_count
+            span = 1.0 / profile_count
+            strategy_mode = str(spec["strategy_mode"])
+            tuning_profile_override = spec.get("tuning_profile_override")
+            tuning_profile = str(tuning_profile_override) if tuning_profile_override else None
+            file_name = str(spec["file_name"])
+            existing_report = _load_json_report(file_name)
+            cached_issues, missing_recent_issues = _incremental_full_history_cache_window(
+                report=existing_report,
+                history_asc=history_asc,
+                latest_issue=latest_issue,
+                expected_issue_count=expected_issue_count,
+            )
+            should_replay = missing_recent_issues != 0 or not cached_issues
+            recent_issues = missing_recent_issues if missing_recent_issues > 0 else total_draws
+
+            def _profile_progress(**kwargs) -> None:
+                inner_progress = float(kwargs.get("progress") or 0.0)
+                message = kwargs.get("message") or f"Updating {profile}"
+                _update_full_history_cache_job(
+                    job_id,
+                    progress=base_progress + inner_progress * span,
+                    message=f"{profile}: {message}",
+                )
+
+            _update_full_history_cache_job(
+                job_id,
+                progress=base_progress,
+                message=(
+                    f"Incrementally updating {profile}"
+                    if cached_issues and missing_recent_issues > 0
+                    else f"Updating {profile}"
+                ),
+            )
+            if should_replay:
+                response = run_backtest(
+                    recent_issues=recent_issues,
+                    scheme_count=scheme_count,
+                    strategy_mode=strategy_mode,
+                    ticket_mode=ticket_mode,
+                    ai_replay_mode="local_only",
+                    compare_modes=False,
+                    ai_config=None,
+                    tuning_profile_override=tuning_profile,
+                    multiple=1,
+                    include_baselines=False,
+                    include_applied_profile_comparison=False,
+                    progress_callback=_profile_progress,
+                )
+            else:
+                response = build_backtest_stats(cached_issues)  # type: ignore[arg-type]
+                response.recent_issues = total_draws
+                response.requested_issues = total_draws
+                response.scheme_count = scheme_count
+                response.strategy_mode = strategy_mode  # type: ignore[assignment]
+                response.ticket_mode = ticket_mode  # type: ignore[assignment]
+
+            if cached_issues and missing_recent_issues > 0 and should_replay:
+                merged_issue_map = {
+                    str(item.get("issue") or ""): item
+                    for item in cached_issues
+                    if isinstance(item, dict) and item.get("issue") is not None
+                }
+                for item in response.model_dump(mode="json").get("issues") or []:
+                    if isinstance(item, dict) and item.get("issue") is not None:
+                        merged_issue_map[str(item.get("issue"))] = item
+                merged_issue_rows = sorted(
+                    merged_issue_map.values(),
+                    key=lambda item: int(str(item.get("issue") or "0")),
+                )
+            else:
+                merged_issue_rows = response.model_dump(mode="json").get("issues") or []
+
+            payload = _build_full_history_cache_report_payload(
+                existing_report=existing_report if cached_issues and missing_recent_issues > 0 else None,
+                response=response,
+                combined_issue_rows=merged_issue_rows,
+                recent_issues=total_draws,
+                scheme_count=scheme_count,
+                strategy_mode=strategy_mode,
+                ticket_mode=ticket_mode,
+            )
+            total_issues = int(payload.get("total_issues") or 0)
+            requested_issues = int(payload.get("requested_issues") or 0)
+            if requested_issues != total_draws:
+                raise RuntimeError(f"{profile} requested issue mismatch: {requested_issues}/{total_draws}")
+            if total_issues != expected_issue_count:
+                raise RuntimeError(f"{profile} runnable issue mismatch: {total_issues}/{expected_issue_count}")
+
+            generated_at = _cache_timestamp()
+            metadata = {
+                "algorithm_version": FULL_HISTORY_CACHE_ALGORITHM_VERSION,
+                "generated_at": generated_at,
+                "source_snapshot_at": source_snapshot_at,
+                "latest_issue": latest_issue,
+                "total_draws": total_draws,
+                "expected_issue_count": expected_issue_count,
+                "scheme_count": scheme_count,
+                "ticket_mode": ticket_mode,
+                "profile": profile,
+                "candidate_name": spec.get("candidate_name"),
+                "strategy_mode": strategy_mode,
+                "tuning_profile_override": tuning_profile,
+                "total_issues": total_issues,
+                "total_generated_schemes": int(payload.get("total_generated_schemes") or 0),
+                "issue_hit_rate": float(payload.get("issue_hit_rate") or 0.0),
+                "overall_win_rate": float(payload.get("overall_win_rate") or 0.0),
+                "total_prize_amount": float(payload.get("total_prize_amount") or 0.0),
+                "net_profit": float(payload.get("net_profit") or 0.0),
+            }
+            payload["full_history_cache"] = metadata
+            _write_json_report_atomic(file_name, payload)
+            report_metadata[profile] = metadata
+
+        manifest_generated_at = _cache_timestamp()
+        manifest = {
+            "algorithm_version": FULL_HISTORY_CACHE_ALGORITHM_VERSION,
+            "generated_at": manifest_generated_at,
+            "source_snapshot_at": source_snapshot_at,
+            "latest_issue": latest_issue,
+            "total_draws": total_draws,
+            "expected_issue_count": expected_issue_count,
+            "scheme_count": scheme_count,
+            "ticket_mode": ticket_mode,
+            "profiles": _full_history_cache_manifest_profile_entries(specs, report_metadata),
+        }
+        _write_json_report_atomic(
+            os.path.basename(_full_history_cache_manifest_path(scheme_count, ticket_mode)),
+            manifest,
+        )
+        _clear_smart_balance_candidate_cache()
+        _update_full_history_cache_job(
+            job_id,
+            status="completed",
+            progress=1.0,
+            message="Full-history cache update completed",
+            finished_at=datetime.utcnow(),
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Full-history cache rebuild failed: %s", job_id)
+        _update_full_history_cache_job(
+            job_id,
+            status="failed",
+            progress=1.0,
+            message="Full-history cache update failed",
+            error=str(exc),
+            finished_at=datetime.utcnow(),
+        )
+
+
+def create_full_history_cache_rebuild_job(
+    scheme_count: int = 3,
+    ticket_mode: str = "basic",
+    *,
+    force: bool = False,
+) -> FullHistoryCacheRebuildJob:
+    ticket_mode = _normalize_ticket_mode(ticket_mode)
+    active_job = _active_full_history_cache_job(scheme_count, ticket_mode)
+    if active_job:
+        return active_job
+    status = get_full_history_cache_status(scheme_count=scheme_count, ticket_mode=ticket_mode)
+    if status.valid:
+        job = _FullHistoryCacheJobState(
+            job_id=uuid4().hex,
+            scheme_count=scheme_count,
+            ticket_mode=ticket_mode,
+            status="completed",
+            progress=1.0,
+            message="Full-history cache is already up to date",
+            started_at=datetime.utcnow(),
+            finished_at=datetime.utcnow(),
+        )
+        with _full_history_cache_lock:
+            _full_history_cache_jobs[job.job_id] = job
+            _trim_full_history_cache_jobs()
+        return _serialize_full_history_cache_job(job)
+
+    job = _FullHistoryCacheJobState(
+        job_id=uuid4().hex,
+        scheme_count=scheme_count,
+        ticket_mode=ticket_mode,
+        message="Queued full-history cache update",
+    )
+    with _full_history_cache_lock:
+        _full_history_cache_jobs[job.job_id] = job
+        _trim_full_history_cache_jobs()
+    _full_history_cache_executor.submit(_run_full_history_cache_rebuild_job, job.job_id)
+    return _serialize_full_history_cache_job(job)
+
+
+def rebuild_full_history_cache_now(
+    scheme_count: int = 3,
+    ticket_mode: str = "basic",
+    *,
+    force: bool = False,
+) -> FullHistoryCacheStatus:
+    ticket_mode = _normalize_ticket_mode(ticket_mode)
+    status = get_full_history_cache_status(scheme_count=scheme_count, ticket_mode=ticket_mode)
+    if status.valid and not force:
+        return status
+
+    job = _FullHistoryCacheJobState(
+        job_id=uuid4().hex,
+        scheme_count=scheme_count,
+        ticket_mode=ticket_mode,
+        message="Running full-history cache update synchronously",
+    )
+    with _full_history_cache_lock:
+        _full_history_cache_jobs[job.job_id] = job
+        _trim_full_history_cache_jobs()
+
+    _run_full_history_cache_rebuild_job(job.job_id)
+
+    final_job = get_full_history_cache_rebuild_job(job.job_id)
+    if final_job and final_job.status == "failed":
+        raise RuntimeError(final_job.error or "full-history cache update failed")
+    return get_full_history_cache_status(scheme_count=scheme_count, ticket_mode=ticket_mode)
+
+
+def get_full_history_cache_rebuild_job(job_id: str) -> FullHistoryCacheRebuildJob | None:
+    with _full_history_cache_lock:
+        job = _full_history_cache_jobs.get(job_id)
+        return _serialize_full_history_cache_job(job) if job else None
+
+
+def _smart_balance_report_file_path(file_name: str) -> str:
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "reports", file_name))
+
+
+def _full_history_cache_candidate_report_files(
+    scheme_count: int = 3,
+    ticket_mode: str = "basic",
+) -> dict[str, str] | None:
+    manifest = _load_full_history_cache_manifest(scheme_count, _normalize_ticket_mode(ticket_mode))
+    profiles = manifest.get("profiles") if isinstance(manifest, dict) else None
+    if not isinstance(profiles, dict):
+        return None
+    specs = _full_history_cache_profile_specs(scheme_count, ticket_mode)
+    report_files: dict[str, str] = {}
+    for profile, spec in specs.items():
+        manifest_profile = profiles.get(profile)
+        file_name = (
+            str(manifest_profile.get("file_name"))
+            if isinstance(manifest_profile, dict) and manifest_profile.get("file_name")
+            else str(spec["file_name"])
+        )
+        report_files[profile] = file_name
+    return report_files
+
+
+def _smart_balance_report_signature(
+    scheme_count: int = 3,
+    ticket_mode: str = "basic",
+) -> tuple[tuple[str, float, int], ...]:
+    report_files = _full_history_cache_candidate_report_files(scheme_count, ticket_mode) or SMART_BALANCE_CANDIDATE_REPORT_FILES
+    file_names = [*report_files.values()]
+    signature: list[tuple[str, float, int]] = []
+    for file_name in file_names:
+        path = _smart_balance_report_file_path(file_name)
+        try:
+            stat_result = os.stat(path)
+            signature.append((path, stat_result.st_mtime, stat_result.st_size))
+        except OSError:
+            signature.append((path, 0.0, 0))
+    return tuple(signature)
+
+
+def _smart_balance_issue_result_from_report(issue: dict) -> dict:
+    return {
+        "issue": str(issue.get("issue") or ""),
+        "draw_date": issue.get("draw_date"),
+        "issue_confidence": float(issue.get("issue_confidence") or 0.0),
+        "front_confidence": float(issue.get("front_confidence") or 0.0),
+        "back_confidence": float(issue.get("back_confidence") or 0.0),
+        "front_best_match_count": int(issue.get("front_best_match_count") or 0),
+        "back_best_match_count": int(issue.get("back_best_match_count") or 0),
+        "won_count": int(issue.get("won_count") or 0),
+        "total_prize_amount": float(issue.get("total_prize_amount") or 0.0),
+        "best_prize_level": issue.get("best_prize_level"),
+        "best_prize_amount": issue.get("best_prize_amount"),
+        "prize_level_hits": issue.get("prize_level_hits") or {},
+        "top3_hit": bool(issue.get("top3_hit")),
+        "top4_hit": bool(issue.get("top4_hit")),
+        "front_4plus_hit": bool(issue.get("front_4plus_hit")),
+        "front_5_hit": bool(issue.get("front_5_hit")),
+        "five_plus_zero_hit": bool(issue.get("five_plus_zero_hit")),
+        "five_plus_one_hit": bool(issue.get("five_plus_one_hit")),
+        "five_plus_two_hit": bool(issue.get("five_plus_two_hit")),
+        "four_plus_two_hit": bool(issue.get("four_plus_two_hit")),
+        "back_2plus_hit": bool(issue.get("back_2plus_hit")),
+        "issue_power_score": float(issue.get("issue_power_score") or 0.0),
+        "winning_scheme_labels": issue.get("winning_scheme_labels") or [],
+    }
+
+
+def _smart_balance_single_hit_issue_result(issue_comparison: dict) -> dict:
+    secondary = issue_comparison.get("secondary") if isinstance(issue_comparison, dict) else None
+    secondary = secondary if isinstance(secondary, dict) else {}
+    best_amount = secondary.get("best_prize_amount")
+    return {
+        "issue": str(issue_comparison.get("issue") or ""),
+        "draw_date": issue_comparison.get("draw_date"),
+        "won_count": int(secondary.get("won_count") or 0),
+        "total_prize_amount": float(best_amount or 0.0),
+        "best_prize_level": secondary.get("best_prize_level"),
+        "best_prize_amount": best_amount,
+        "prize_level_hits": secondary.get("prize_level_hits") or {},
+        "top3_hit": bool(secondary.get("top3_hit")),
+        "top4_hit": bool(secondary.get("top4_hit")),
+        "front_4plus_hit": bool(secondary.get("front_4plus_hit")),
+        "front_5_hit": bool(secondary.get("front_5_hit")),
+        "five_plus_zero_hit": bool(secondary.get("five_plus_zero_hit")),
+        "five_plus_one_hit": bool(secondary.get("five_plus_one_hit")),
+        "five_plus_two_hit": bool(secondary.get("five_plus_two_hit")),
+        "four_plus_two_hit": bool(secondary.get("four_plus_two_hit")),
+        "back_2plus_hit": bool(secondary.get("back_2plus_hit")),
+        "issue_power_score": float(secondary.get("issue_power_score") or 0.0),
+    }
+
+
+def _smart_balance_issue_with_proxy_signals(issue_result: dict) -> dict:
+    normalized = dict(issue_result)
+    prize_level_hits = normalized.get("prize_level_hits")
+    if not isinstance(prize_level_hits, dict):
+        prize_level_hits = {}
+    best_prize_level = normalized.get("best_prize_level")
+    if not isinstance(best_prize_level, str) or not best_prize_level:
+        best_prize_level = None
+
+    present_levels = {str(level) for level, count in prize_level_hits.items() if int(count or 0) > 0}
+    if best_prize_level:
+        present_levels.add(best_prize_level)
+    if not best_prize_level and present_levels:
+        for level in PRIZE_LEVEL_ORDER:
+            if level in present_levels:
+                best_prize_level = level
+                break
+
+    top3_from_level = any(level in TOP3_PRIZE_LEVELS for level in present_levels)
+    top4_from_level = any(level in TOP4_PRIZE_LEVELS for level in present_levels)
+    five_plus_two_from_level = "一等奖" in present_levels
+    five_plus_one_from_level = bool({"一等奖", "二等奖"} & present_levels)
+    five_plus_zero_from_level = bool({"一等奖", "二等奖", "三等奖"} & present_levels)
+    four_plus_two_from_level = bool({"一等奖", "四等奖"} & present_levels)
+    back_2plus_from_level = bool({"一等奖", "四等奖"} & present_levels)
+
+    front_best_match_count = int(normalized.get("front_best_match_count") or 0)
+    back_best_match_count = int(normalized.get("back_best_match_count") or 0)
+    if front_best_match_count <= 0:
+        if top3_from_level:
+            front_best_match_count = 5
+        elif top4_from_level:
+            front_best_match_count = 4
+    if back_best_match_count <= 0:
+        if five_plus_two_from_level or four_plus_two_from_level:
+            back_best_match_count = 2
+        elif five_plus_one_from_level:
+            back_best_match_count = 1
+
+    normalized["top3_hit"] = bool(normalized.get("top3_hit")) or top3_from_level
+    normalized["top4_hit"] = bool(normalized.get("top4_hit")) or top4_from_level
+    normalized["front_4plus_hit"] = bool(normalized.get("front_4plus_hit")) or front_best_match_count >= 4
+    normalized["front_5_hit"] = bool(normalized.get("front_5_hit")) or front_best_match_count >= 5
+    normalized["five_plus_zero_hit"] = bool(normalized.get("five_plus_zero_hit")) or five_plus_zero_from_level
+    normalized["five_plus_one_hit"] = bool(normalized.get("five_plus_one_hit")) or five_plus_one_from_level
+    normalized["five_plus_two_hit"] = bool(normalized.get("five_plus_two_hit")) or five_plus_two_from_level
+    normalized["four_plus_two_hit"] = bool(normalized.get("four_plus_two_hit")) or four_plus_two_from_level
+    normalized["back_2plus_hit"] = bool(normalized.get("back_2plus_hit")) or back_best_match_count >= 2 or back_2plus_from_level
+    normalized["front_best_match_count"] = front_best_match_count
+    normalized["back_best_match_count"] = back_best_match_count
+    normalized["issue_power_score"] = max(
+        float(normalized.get("issue_power_score") or 0.0),
+        _evaluation_power_score(
+            front_match_count=front_best_match_count,
+            back_match_count=back_best_match_count,
+            prize_level=best_prize_level,
+        ),
+    )
+    normalized["prize_level_hits"] = prize_level_hits
+    return normalized
+
+
+def _load_smart_balance_candidate_results(
+    scheme_count: int = 3,
+    ticket_mode: str = "basic",
+) -> dict[str, dict[str, dict]]:
+    global _smart_balance_report_cache_signature, _smart_balance_report_candidate_cache
+    signature = _smart_balance_report_signature(scheme_count, ticket_mode)
+    if _smart_balance_report_candidate_cache is not None and _smart_balance_report_cache_signature == signature:
+        return _smart_balance_report_candidate_cache
+
+    candidate_results: dict[str, dict[str, dict]] = {
+        profile_name: {} for profile_name, *_ in _smart_balance_candidate_profiles()
+    }
+    report_files = _full_history_cache_candidate_report_files(scheme_count, ticket_mode) or SMART_BALANCE_CANDIDATE_REPORT_FILES
+    for report_profile, file_name in report_files.items():
+        candidate_name = SMART_BALANCE_REPORT_PROFILE_MAP.get(report_profile)
+        if not candidate_name or candidate_name not in candidate_results:
+            continue
+        path = _smart_balance_report_file_path(file_name)
+        try:
+            with open(path, "r", encoding="utf-8") as file_obj:
+                report = json.load(file_obj)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Failed to load smart balance candidate report %s: %s", file_name, exc)
+            continue
+        for issue in report.get("issues") or []:
+            if not isinstance(issue, dict):
+                continue
+            issue_result = _smart_balance_issue_result_from_report(issue)
+            if issue_result["issue"]:
+                candidate_results[candidate_name][issue_result["issue"]] = issue_result
+        if report_profile == "default_multi":
+            single_candidate_name = SMART_BALANCE_REPORT_PROFILE_MAP.get("single_hit_default")
+            if single_candidate_name and single_candidate_name in candidate_results:
+                for issue_comparison in report.get("issue_comparison") or []:
+                    if not isinstance(issue_comparison, dict):
+                        continue
+                    issue_result = _smart_balance_single_hit_issue_result(issue_comparison)
+                    if issue_result["issue"]:
+                        candidate_results[single_candidate_name][issue_result["issue"]] = issue_result
+
+    _smart_balance_report_cache_signature = signature
+    _smart_balance_report_candidate_cache = candidate_results
+    return candidate_results
+
+
+def _candidate_result_summary(profile_results: dict[str, dict]) -> dict[str, float]:
+    issues = [_smart_balance_issue_with_proxy_signals(item) for item in profile_results.values()]
+    total_issues = len(issues)
+    total_generated_schemes = sum(int(item.get("scheme_count") or 3) for item in issues)
+    won_schemes = sum(int(item.get("won_count") or 0) for item in issues)
+    hit_issues = sum(1 for item in issues if int(item.get("won_count") or 0) > 0)
+    total_cost = total_generated_schemes * TICKET_PRICE
+    total_prize_amount = sum(float(item.get("total_prize_amount") or 0.0) for item in issues)
+    overall_win_rate = won_schemes / total_generated_schemes if total_generated_schemes else 0.0
+    issue_hit_rate = hit_issues / total_issues if total_issues else 0.0
+    roi = total_prize_amount / total_cost if total_cost else 0.0
+    average_issue_score = (
+        sum(_smart_balance_issue_score(item) for item in issues) / total_issues if total_issues else 0.0
+    )
+    signal_totals = _performance_signal_totals(issues)
+    high_tier_proxy_score = _high_tier_proxy_score(signal_totals, total_issues=total_issues)
+    top4_hit_rate = min(1.0, signal_totals["top4_hit_issues"] / total_issues) if total_issues else 0.0
+    top3_hit_rate = min(1.0, signal_totals["top3_hit_issues"] / total_issues) if total_issues else 0.0
+    five_plus_one_hit_rate = (
+        min(1.0, signal_totals["five_plus_one_hit_issues"] / total_issues) if total_issues else 0.0
+    )
+    five_plus_two_hit_rate = (
+        min(1.0, signal_totals["five_plus_two_hit_issues"] / total_issues) if total_issues else 0.0
+    )
+    return {
+        "issues": float(total_issues),
+        "won_schemes": float(won_schemes),
+        "hit_issues": float(hit_issues),
+        "total_cost": total_cost,
+        "total_prize_amount": total_prize_amount,
+        "net_profit": total_prize_amount - total_cost,
+        "overall_win_rate": overall_win_rate,
+        "issue_hit_rate": issue_hit_rate,
+        "high_tier_proxy_score": high_tier_proxy_score,
+        "top4_hit_rate": top4_hit_rate,
+        "top3_hit_rate": top3_hit_rate,
+        "five_plus_one_hit_rate": five_plus_one_hit_rate,
+        "five_plus_two_hit_rate": five_plus_two_hit_rate,
+        "score": (
+            average_issue_score
+            + high_tier_proxy_score * 1.20
+            + top4_hit_rate * 0.45
+            + top3_hit_rate * 0.30
+            + five_plus_one_hit_rate * 0.28
+            + five_plus_two_hit_rate * 0.34
+            + issue_hit_rate * 0.12
+            + overall_win_rate * 0.04
+            + roi / 8.0
+        ),
+    }
+
+
+def _select_full_history_profile_for_mode(
+    history_asc: list,
+    strategy_mode: str,
+    *,
+    scheme_count: int = 3,
+    ticket_mode: str = "basic",
+) -> SmartBalanceLiveProfile | None:
+    candidate_results = _load_smart_balance_candidate_results(scheme_count, ticket_mode)
+    _ensure_live_smart_balance_candidate_results(
+        history_asc,
+        candidate_results,
+        scheme_count=scheme_count,
+        ticket_mode=ticket_mode,
+    )
+    candidate_profiles = _smart_balance_candidate_profiles()
+    mode_profiles = [
+        (profile_name, display_name)
+        for profile_name, candidate_strategy_mode, display_name, *_ in candidate_profiles
+        if candidate_strategy_mode == strategy_mode
+    ]
+    if not mode_profiles:
+        return None
+
+    common_issues: set[str] | None = None
+    for profile_name, _display_name in mode_profiles:
+        profile_issue_keys = set(candidate_results.get(profile_name, {}).keys())
+        common_issues = profile_issue_keys if common_issues is None else (common_issues & profile_issue_keys)
+    common_issues = common_issues or set()
+
+    best_profile_name: str | None = None
+    best_summary: dict[str, float] | None = None
+    summaries: dict[str, dict[str, float]] = {}
+    for profile_name, _display_name in mode_profiles:
+        profile_results = candidate_results.get(profile_name, {})
+        if common_issues:
+            profile_results = {issue: profile_results[issue] for issue in common_issues if issue in profile_results}
+        summary = _candidate_result_summary(profile_results)
+        summaries[profile_name] = summary
+        if summary["issues"] <= 0:
+            continue
+        if best_summary is None or (
+            summary["score"],
+            summary["high_tier_proxy_score"],
+            summary["net_profit"],
+            summary["issue_hit_rate"],
+        ) > (
+            best_summary["score"],
+            best_summary["high_tier_proxy_score"],
+            best_summary["net_profit"],
+            best_summary["issue_hit_rate"],
+        ):
+            best_profile_name = profile_name
+            best_summary = summary
+    if not best_profile_name or not best_summary:
+        return None
+
+    display_lookup = {profile_name: display_name for profile_name, display_name in mode_profiles}
+    reason = (
+        f"{_smart_balance_mode_label(strategy_mode)} 模式按全历史 {int(best_summary['issues'])} 期重跑结果选档，"
+        f"当前采用 {display_lookup.get(best_profile_name, best_profile_name)}；"
+        f"高奖代理分 {best_summary['high_tier_proxy_score']:.4f}，"
+        f"期命中率 {best_summary['issue_hit_rate']:.3%}，"
+        f"注命中率 {best_summary['overall_win_rate']:.3%}，"
+        f"净收益 {best_summary['net_profit']:.2f}。"
+    )
+    return _smart_balance_profile_from_candidate_name(best_profile_name, reason)
+
+
+def _calibration_history_from_candidate_results(profile_results: dict[str, dict]) -> list[dict]:
+    calibration_history: list[dict] = []
+    for issue in sorted(profile_results):
+        item = profile_results[issue]
+        raw_confidence = float(item.get("issue_confidence") or 0.0)
+        if raw_confidence <= 0:
+            continue
+        winning_labels = item.get("winning_scheme_labels")
+        winning_label_set = set(winning_labels if isinstance(winning_labels, list) else [])
+        label_hits = {label: 1 for label in winning_label_set}
+        try:
+            issue_mod_7 = int(issue) % 7
+        except ValueError:
+            issue_mod_7 = 0
+        calibration_history.append(
+            {
+                "raw_confidence": raw_confidence,
+                "hit": 1 if int(item.get("won_count") or 0) > 0 else 0,
+                "raw_front_confidence": float(item.get("front_confidence") or 0.0),
+                "front_hit": 1 if int(item.get("front_best_match_count") or 0) >= 3 else 0,
+                "raw_back_confidence": float(item.get("back_confidence") or 0.0),
+                "back_hit": 1 if int(item.get("back_best_match_count") or 0) >= 1 else 0,
+                "issue_mod_7": issue_mod_7,
+                "label_hits": label_hits,
+            }
+        )
+    return calibration_history
+
+
+def _full_history_report_calibration(
+    history_asc: list,
+    profile_name: str,
+    *,
+    scheme_count: int = 3,
+    ticket_mode: str = "basic",
+) -> list[dict]:
+    candidate_results = _load_smart_balance_candidate_results(scheme_count, ticket_mode)
+    _ensure_live_smart_balance_candidate_results(
+        history_asc,
+        candidate_results,
+        scheme_count=scheme_count,
+        ticket_mode=ticket_mode,
+    )
+    return _calibration_history_from_candidate_results(candidate_results.get(profile_name, {}))
+
+
+def _ensure_live_smart_balance_candidate_results(
+    history_asc: list,
+    candidate_results: dict[str, dict[str, dict]],
+    *,
+    scheme_count: int = 3,
+    ticket_mode: str = "basic",
+) -> None:
+    candidate_profiles = _active_live_smart_balance_candidate_profiles(candidate_results)
+    if not candidate_profiles:
+        return
+    profile_names = [profile_name for profile_name, *_ in candidate_profiles]
+    missing_draws = [
+        draw for draw in history_asc if any(str(draw.issue) not in candidate_results.get(profile_name, {}) for profile_name in profile_names)
+    ]
+    if not missing_draws:
+        return
+    recent_window = max(SMART_BALANCE_GUARD_WINDOW, SMART_BALANCE_WINDOW)
+    if len(missing_draws) > recent_window:
+        logger.info(
+            "Smart balance candidate cache missing %s issues; backfilling the most recent %s only.",
+            len(missing_draws),
+            recent_window,
+        )
+        missing_draws = missing_draws[-recent_window:]
+
+    history_context_cache = _build_history_context_cache(history_asc, missing_draws)
+    for index, target in enumerate(missing_draws):
+        history_item = history_context_cache.get(target.issue)
+        if not history_item:
+            continue
+        prior_history_desc, history_context = history_item
+        if history_context.history_size < 30:
+            continue
+        for profile_name, candidate_strategy_mode, display_name, score_weights, combo_weights in candidate_profiles:
+            if target.issue in candidate_results.get(profile_name, {}):
+                continue
+            raw = _evaluate_backtest_issue(
+                index,
+                target=target,
+                prior_history_desc=prior_history_desc,
+                history_context=history_context,
+                scheme_count=scheme_count,
+                strategy_mode=candidate_strategy_mode,
+                ticket_mode=ticket_mode,
+                backtest_ai_config=None,
+                score_weights=score_weights,
+                combo_weights=combo_weights,
+                tuning_profile=display_name,
+                include_baselines=False,
+                search_profile="full",
+            )
+            candidate_results.setdefault(profile_name, {})[target.issue] = _issue_result_from_backtest_payload(
+                raw,
+                scheme_count=scheme_count,
+                ticket_mode=ticket_mode,
+                tuning_profile=display_name,
+                count_policy="smart_balance_live_candidate",
+                decision_tier=profile_name,
+                decision_reason=f"智能平衡现场补算候选档位：{display_name}",
+            )
+
+
+def _select_smart_balance_candidate_name_from_scores(
+    history_asc: list,
+    candidate_results: dict[str, dict[str, dict]],
+) -> tuple[str | None, str]:
+    candidate_profiles = _active_live_smart_balance_candidate_profiles(candidate_results)
+    if not candidate_profiles:
+        return None, "智能平衡候选档位为空。"
+    fallback_profile = candidate_profiles[0][0]
+    profile_display = {profile_name: display_name for profile_name, _, display_name, *_ in candidate_profiles}
+    profile_names = [profile_name for profile_name, *_ in candidate_profiles]
+    scored_issues = [
+        str(draw.issue)
+        for draw in history_asc
+        if all(str(draw.issue) in candidate_results.get(profile_name, {}) for profile_name in profile_names)
+    ]
+    if not scored_issues:
+        return fallback_profile, "智能平衡没有可用候选回放评分，使用默认候选档位。"
+
+    attack_issues = scored_issues[-SMART_BALANCE_WINDOW:]
+    guard_issues = scored_issues[-SMART_BALANCE_GUARD_WINDOW:]
+    attack_scores: dict[str, float] = {}
+    guard_scores: dict[str, float] = {}
+    for profile_name in profile_names:
+        attack_scores[profile_name] = sum(
+            _smart_balance_attack_issue_score(candidate_results[profile_name][window_issue])
+            for window_issue in attack_issues
+        ) / max(1, len(attack_issues))
+        guard_scores[profile_name] = sum(
+            _smart_balance_issue_score(candidate_results[profile_name][window_issue])
+            for window_issue in guard_issues
+        ) / max(1, len(guard_issues))
+
+    attack_profile = max(attack_scores, key=lambda name: (attack_scores[name], name == fallback_profile))
+    guard_profile = max(guard_scores, key=lambda name: (guard_scores[name], name == fallback_profile))
+    if attack_scores[attack_profile] >= guard_scores[guard_profile] + SMART_BALANCE_SWITCH_MARGIN:
+        chosen_profile = attack_profile
+        reason = (
+            f"智能平衡按当前已知历史重算 {SMART_BALANCE_WINDOW}/{SMART_BALANCE_GUARD_WINDOW} 窗口，"
+            f"短窗冲高选择 {profile_display.get(chosen_profile, chosen_profile)} "
+            f"({attack_scores[chosen_profile]:.3f})，长窗最佳 "
+            f"{profile_display.get(guard_profile, guard_profile)} ({guard_scores[guard_profile]:.3f})。"
+        )
+    else:
+        chosen_profile = guard_profile
+        reason = (
+            f"智能平衡按当前已知历史重算 {SMART_BALANCE_WINDOW}/{SMART_BALANCE_GUARD_WINDOW} 窗口，"
+            f"长窗保底选择 {profile_display.get(chosen_profile, chosen_profile)} "
+            f"({guard_scores[chosen_profile]:.3f})，短窗最佳 "
+            f"{profile_display.get(attack_profile, attack_profile)} ({attack_scores[attack_profile]:.3f})。"
+        )
+    return chosen_profile, reason
+
+
+def _select_live_smart_balance_profile(
+    history_asc: list,
+    *,
+    scheme_count: int = 3,
+    ticket_mode: str = "basic",
+) -> SmartBalanceLiveProfile:
+    candidate_results = _load_smart_balance_candidate_results(scheme_count, ticket_mode)
+    _ensure_live_smart_balance_candidate_results(
+        history_asc,
+        candidate_results,
+        scheme_count=scheme_count,
+        ticket_mode=ticket_mode,
+    )
+    candidate_name, selection_reason = _select_smart_balance_candidate_name_from_scores(history_asc, candidate_results)
+    return _smart_balance_profile_from_candidate_name(candidate_name, selection_reason)
+
+
+def _live_calibration_cache_key(
+    history_asc: list,
+    *,
+    sample_issues: int,
+    scheme_count: int,
+    strategy_mode: str,
+    score_weights: dict[str, float],
+    combo_weights: dict[str, float],
+) -> tuple:
+    latest_issue = history_asc[-1].issue if history_asc else None
+    latest_draw_date = str(history_asc[-1].draw_date) if history_asc else None
+    return (
+        latest_issue,
+        latest_draw_date,
+        sample_issues,
+        scheme_count,
+        strategy_mode,
+        tuple(sorted((key, round(value, 6)) for key, value in score_weights.items())),
+        tuple(sorted((key, round(value, 6)) for key, value in combo_weights.items())),
+    )
+
+
+_live_calibration_history_cache: dict[tuple, list[dict]] = {}
+
+
+def _get_live_calibration_history(
+    history_asc: list,
+    *,
+    sample_issues: int,
+    scheme_count: int,
+    strategy_mode: str,
+    ai_config: AIConfigRequest | None,
+    score_weights: dict[str, float],
+    combo_weights: dict[str, float],
+) -> list[dict]:
+    cache_key = _live_calibration_cache_key(
+        history_asc,
+        sample_issues=sample_issues,
+        scheme_count=scheme_count,
+        strategy_mode=strategy_mode,
+        score_weights=score_weights,
+        combo_weights=combo_weights,
+    )
+    cached = _live_calibration_history_cache.get(cache_key)
+    if cached is not None:
+        return [dict(item) for item in cached]
+    calibration_history = _build_live_calibration_history(
+        history_asc,
+        sample_issues=sample_issues,
+        scheme_count=scheme_count,
+        strategy_mode=strategy_mode,
+        ai_config=ai_config,
+        score_weights=score_weights,
+        combo_weights=combo_weights,
+    )
+    _live_calibration_history_cache[cache_key] = [dict(item) for item in calibration_history]
+    while len(_live_calibration_history_cache) > 8:
+        oldest_key = next(iter(_live_calibration_history_cache))
+        _live_calibration_history_cache.pop(oldest_key, None)
+    return calibration_history
+
 
 
 def _override_only_tuning_summary(
@@ -3112,6 +4595,29 @@ def _build_history_context_cache(history_asc: list, target_draws: list) -> dict[
             hits_by_window[window_size] = hits
         return hits_by_window
 
+    def _snapshot_front_pair_window_hits() -> dict[int, dict[tuple[int, int], int]]:
+        pair_hits_by_window: dict[int, dict[tuple[int, int], int]] = {}
+        recent_draws = list(recent_history_desc)
+        for window_size, _weight in SUPERVISED_WINDOWS:
+            pair_hits: dict[tuple[int, int], int] = {}
+            for draw_item in recent_draws[:window_size]:
+                for left, right in combinations(sorted(draw_item.front_numbers), 2):
+                    pair_key = (left, right)
+                    pair_hits[pair_key] = pair_hits.get(pair_key, 0) + 1
+            pair_hits_by_window[window_size] = pair_hits
+        return pair_hits_by_window
+
+    def _snapshot_back_pair_window_hits() -> dict[int, dict[tuple[int, int], int]]:
+        pair_hits_by_window: dict[int, dict[tuple[int, int], int]] = {}
+        recent_draws = list(recent_history_desc)
+        for window_size, _weight in SUPERVISED_WINDOWS:
+            pair_hits: dict[tuple[int, int], int] = {}
+            for draw_item in recent_draws[:window_size]:
+                pair_key = tuple(sorted(draw_item.back_numbers))
+                pair_hits[pair_key] = pair_hits.get(pair_key, 0) + 1
+            pair_hits_by_window[window_size] = pair_hits
+        return pair_hits_by_window
+
     def _snapshot_context() -> PrecomputedHistoryFeatures:
         return PrecomputedHistoryFeatures(
             history_size=history_size,
@@ -3129,6 +4635,8 @@ def _build_history_context_cache(history_asc: list, target_draws: list) -> dict[
             back_recent_hits=back_recent_hits.copy(),
             front_window_hits=_snapshot_window_hits(zone="front"),
             back_window_hits=_snapshot_window_hits(zone="back"),
+            front_pair_window_hits=_snapshot_front_pair_window_hits(),
+            back_pair_window_hits=_snapshot_back_pair_window_hits(),
         )
 
     for draw in history_asc:
@@ -3901,17 +5409,78 @@ def _issue_result_from_backtest_payload(
 
 
 def _smart_balance_issue_score(issue_result: dict) -> float:
-    hit_score = SMART_BALANCE_HIT_WEIGHT if int(issue_result.get("won_count") or 0) > 0 else 0.0
-    win_score = float(issue_result.get("won_count") or 0) * SMART_BALANCE_WIN_WEIGHT
-    amount_score = float(issue_result.get("total_prize_amount") or 0.0) / SMART_BALANCE_AMOUNT_DIVISOR
-    return hit_score + win_score + amount_score
+    issue_result = _smart_balance_issue_with_proxy_signals(issue_result)
+    won_count = int(issue_result.get("won_count") or 0)
+    prize_level_hits = issue_result.get("prize_level_hits")
+    if not isinstance(prize_level_hits, dict):
+        prize_level_hits = {}
+    if not prize_level_hits:
+        best_prize_level = issue_result.get("best_prize_level")
+        if isinstance(best_prize_level, str) and best_prize_level:
+            prize_level_hits = {best_prize_level: max(1, won_count)}
+    level_score = sum(
+        float(prize_level_hits.get(level, 0) or 0) * weight
+        for level, weight in SMART_BALANCE_PRIZE_LEVEL_SCORE_WEIGHTS.items()
+    )
+    hit_score = SMART_BALANCE_HIT_WEIGHT if won_count > 0 else 0.0
+    win_score = min(3.0, float(won_count)) * SMART_BALANCE_WIN_WEIGHT
+    amount_score = float(issue_result.get("total_prize_amount") or issue_result.get("best_prize_amount") or 0.0)
+    amount_score /= SMART_BALANCE_AMOUNT_DIVISOR
+    signal_score = 0.0
+    for signal_name, weight in SMART_BALANCE_SIGNAL_SCORE_WEIGHTS.items():
+        if bool(issue_result.get(signal_name)):
+            signal_score += weight
+    issue_power_score = min(1.0, max(0.0, float(issue_result.get("issue_power_score") or 0.0)))
+    return round(hit_score + win_score + level_score + amount_score + signal_score + issue_power_score * 0.45, 4)
+
+
+def _smart_balance_attack_issue_score(issue_result: dict) -> float:
+    issue_result = _smart_balance_issue_with_proxy_signals(issue_result)
+    signal_score = 0.0
+    for signal_name, weight in SMART_BALANCE_SIGNAL_SCORE_WEIGHTS.items():
+        if bool(issue_result.get(signal_name)):
+            signal_score += weight
+    issue_power_score = min(1.0, max(0.0, float(issue_result.get("issue_power_score") or 0.0)))
+    prize_level_hits = issue_result.get("prize_level_hits")
+    if not isinstance(prize_level_hits, dict):
+        prize_level_hits = {}
+    level_score = sum(
+        float(prize_level_hits.get(level, 0) or 0) * weight
+        for level, weight in SMART_BALANCE_PRIZE_LEVEL_SCORE_WEIGHTS.items()
+        if level not in LOW_TIER_PRIZE_LEVELS
+    )
+    amount_score = float(issue_result.get("best_prize_amount") or issue_result.get("total_prize_amount") or 0.0)
+    amount_score /= max(1.0, SMART_BALANCE_AMOUNT_DIVISOR * 2.0)
+    return round(signal_score * 1.15 + issue_power_score * 0.85 + level_score * 0.30 + amount_score, 4)
 
 
 def _smart_balance_profile_summary_score(stats: BacktestResponse) -> float:
+    level_issue_score = 0.0
+    breakdown_by_level = {item.level: item for item in stats.prize_level_breakdown}
+    for level in PRIZE_LEVEL_ORDER:
+        item = breakdown_by_level.get(level)
+        if item is None:
+            continue
+        level_issue_score += item.issue_rate * SMART_BALANCE_PRIZE_LEVEL_SCORE_WEIGHTS.get(level, 0.0)
+    signal_totals = _performance_signal_totals(stats.issues)
+    high_tier_proxy_score = _high_tier_proxy_score(signal_totals, total_issues=stats.total_issues)
+    top4_hit_rate = min(1.0, signal_totals["top4_hit_issues"] / stats.total_issues) if stats.total_issues else 0.0
+    five_plus_one_hit_rate = (
+        min(1.0, signal_totals["five_plus_one_hit_issues"] / stats.total_issues) if stats.total_issues else 0.0
+    )
+    five_plus_two_hit_rate = (
+        min(1.0, signal_totals["five_plus_two_hit_issues"] / stats.total_issues) if stats.total_issues else 0.0
+    )
+    roi = stats.total_prize_amount / max(1.0, stats.total_cost)
     return round(
-        stats.issue_hit_rate * 1.0
-        + stats.overall_win_rate * 0.35
-        + (stats.total_prize_amount / max(1.0, stats.total_cost)) / 3.0,
+        level_issue_score
+        + high_tier_proxy_score * 1.10
+        + top4_hit_rate * 0.40
+        + five_plus_one_hit_rate * 0.25
+        + five_plus_two_hit_rate * 0.30
+        + stats.issue_hit_rate * 0.24
+        + stats.overall_win_rate * 0.08
+        + roi / 8.0,
         4,
     )
 
@@ -4198,6 +5767,11 @@ def _run_smart_balance_backtest_core(
             "hit_weight": SMART_BALANCE_HIT_WEIGHT,
             "win_weight": SMART_BALANCE_WIN_WEIGHT,
             "amount_divisor": SMART_BALANCE_AMOUNT_DIVISOR,
+            "level_weight_top3": SMART_BALANCE_PRIZE_LEVEL_SCORE_WEIGHTS["\u4e09\u7b49\u5956"],
+            "level_weight_top4": SMART_BALANCE_PRIZE_LEVEL_SCORE_WEIGHTS["\u56db\u7b49\u5956"],
+            "level_weight_top5": SMART_BALANCE_PRIZE_LEVEL_SCORE_WEIGHTS["\u4e94\u7b49\u5956"],
+            "level_weight_top6": SMART_BALANCE_PRIZE_LEVEL_SCORE_WEIGHTS["\u516d\u7b49\u5956"],
+            "level_weight_top7": SMART_BALANCE_PRIZE_LEVEL_SCORE_WEIGHTS["\u4e03\u7b49\u5956"],
             "window": float(SMART_BALANCE_WINDOW),
             "guard_window": float(SMART_BALANCE_GUARD_WINDOW),
             "switch_margin": SMART_BALANCE_SWITCH_MARGIN,
@@ -5183,6 +6757,8 @@ def _run_backtest_core(
     ai_replay_mode: str,
     ai_config: AIConfigRequest | None,
     tuning_profile_override: str | None = None,
+    include_baselines: bool = True,
+    skip_auto_tuning_search: bool = False,
     progress_callback: ProgressCallback | None = None,
     cancel_check: CancelCheck | None = None,
 ) -> BacktestResponse:
@@ -5230,15 +6806,23 @@ def _run_backtest_core(
             processed_issues=0,
             total_issues=len(target_draws),
         )
-    tuning_summary = _build_tuning_summary(
-        history_asc,
-        recent_issues=recent_issues,
-        scheme_count=scheme_count,
-        strategy_mode=strategy_mode,
-        ticket_mode=ticket_mode,
-        applied_profile_override=tuning_profile_override,
-        cancel_check=cancel_check,
-    )
+    if skip_auto_tuning_search and tuning_profile_override:
+        tuning_summary = _override_only_tuning_summary(
+            tuning_profile_override,
+            sample_issues=max(0, len(target_draws)),
+            scheme_count=scheme_count,
+            strategy_mode=strategy_mode,
+        )
+    else:
+        tuning_summary = _build_tuning_summary(
+            history_asc,
+            recent_issues=recent_issues,
+            scheme_count=scheme_count,
+            strategy_mode=strategy_mode,
+            ticket_mode=ticket_mode,
+            applied_profile_override=tuning_profile_override,
+            cancel_check=cancel_check,
+        )
     score_weights, combo_weights = _resolve_tuning_weights(tuning_summary)
     if ai_replay_mode == "external_rerank":
         logger.info(
@@ -5301,6 +6885,7 @@ def _run_backtest_core(
                     score_weights=score_weights,
                     combo_weights=combo_weights,
                     tuning_profile=tuning_profile_name,
+                    include_baselines=include_baselines,
                 )
             )
             processed_targets += 1
@@ -5321,6 +6906,7 @@ def _run_backtest_core(
                     score_weights=score_weights,
                     combo_weights=combo_weights,
                     tuning_profile=tuning_profile_name,
+                    include_baselines=include_baselines,
                 ): target.issue
                 for index, target, prior_history_desc, history_context in prepared_targets
             }
@@ -5581,24 +7167,25 @@ def _run_backtest_core(
                 "fresh_back_number_rate": coverage_metrics.fresh_back_number_rate,
             }
         )
-        window_summary = raw["window_summary"]
-        window_model_issue_results.append(
-            {
-                "issue": raw["issue"],
-                "draw_date": raw["draw_date"],
-                "scheme_count": scheme_count,
-                "won_count": window_summary["won_count"],
-                "best_prize_level": window_summary["best_prize_level"],
-                "best_prize_amount": window_summary["best_prize_amount"],
-                "total_prize_amount": window_summary["total_prize_amount"],
-                "winning_scheme_labels": [],
-                "prize_level_hits": window_summary["prize_level_hits"],
-                "prize_level_amounts": window_summary["prize_level_amounts"],
-                "ticket_mode": ticket_mode,
-                "cost": raw["cost"],
-            }
-        )
-        random_issue_results.extend(raw["random_issue_results"])
+        if include_baselines:
+            window_summary = raw["window_summary"]
+            window_model_issue_results.append(
+                {
+                    "issue": raw["issue"],
+                    "draw_date": raw["draw_date"],
+                    "scheme_count": scheme_count,
+                    "won_count": window_summary["won_count"],
+                    "best_prize_level": window_summary["best_prize_level"],
+                    "best_prize_amount": window_summary["best_prize_amount"],
+                    "total_prize_amount": window_summary["total_prize_amount"],
+                    "winning_scheme_labels": [],
+                    "prize_level_hits": window_summary["prize_level_hits"],
+                    "prize_level_amounts": window_summary["prize_level_amounts"],
+                    "ticket_mode": ticket_mode,
+                    "cost": raw["cost"],
+                }
+            )
+            random_issue_results.extend(raw["random_issue_results"])
 
     raw_diag_path = os.environ.get("BACKTEST_RAW_DIAG_PATH")
     if raw_diag_path:
@@ -5606,11 +7193,15 @@ def _run_backtest_core(
             json.dump(raw_diagnostic_rows, file, ensure_ascii=False, default=str)
 
     response = build_backtest_stats(issue_results)  # type: ignore[arg-type]
-    response.threshold_scan = _threshold_scan_results(
-        issue_trials,
-        strategy_mode=strategy_mode,
-        max_scheme_count=scheme_count,
-        ticket_mode=ticket_mode,
+    response.threshold_scan = (
+        _threshold_scan_results(
+            issue_trials,
+            strategy_mode=strategy_mode,
+            max_scheme_count=scheme_count,
+            ticket_mode=ticket_mode,
+        )
+        if include_baselines
+        else []
     )
     default_threshold = round(
         (calibrated_threshold_total / dynamic_threshold_count) if dynamic_threshold_count else confidence_threshold,
@@ -5684,6 +7275,8 @@ def _run_backtest_core(
             window_model_issue_results,
         ),
     ]
+    if not include_baselines:
+        response.benchmarks = []
     response.mode_comparison = []
     response.issue_comparison = []
     if progress_callback:
@@ -5761,6 +7354,9 @@ def run_backtest(
     ai_config: AIConfigRequest | None = None,
     tuning_profile_override: str | None = None,
     multiple: int = 1,
+    include_baselines: bool = True,
+    include_applied_profile_comparison: bool = True,
+    skip_auto_tuning_search: bool = False,
     progress_callback: ProgressCallback | None = None,
     cancel_check: CancelCheck | None = None,
 ) -> BacktestResponse:
@@ -5787,10 +7383,12 @@ def run_backtest(
         ai_replay_mode=ai_replay_mode,
         ai_config=ai_config,
         tuning_profile_override=tuning_profile_override,
+        include_baselines=include_baselines,
+        skip_auto_tuning_search=skip_auto_tuning_search,
         progress_callback=progress_callback,
         cancel_check=cancel_check,
     )
-    if response.tuning_summary and response.tuning_summary.applied_is_override:
+    if include_applied_profile_comparison and response.tuning_summary and response.tuning_summary.applied_is_override:
         auto_response = _run_backtest_core(
             history_asc,
             recent_issues=recent_issues,
@@ -5800,6 +7398,8 @@ def run_backtest(
             ai_replay_mode=ai_replay_mode,
             ai_config=ai_config,
             tuning_profile_override=None,
+            include_baselines=include_baselines,
+            skip_auto_tuning_search=skip_auto_tuning_search,
             progress_callback=(
                 (lambda **kwargs: progress_callback(
                     stage="compare_profiles",
@@ -5848,6 +7448,8 @@ def run_backtest(
         ai_replay_mode=ai_replay_mode,
         ai_config=ai_config,
         tuning_profile_override=tuning_profile_override,
+        include_baselines=include_baselines,
+        skip_auto_tuning_search=skip_auto_tuning_search,
         progress_callback=(
             (lambda **kwargs: progress_callback(
                 stage="compare_modes",

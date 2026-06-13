@@ -148,7 +148,7 @@ class DivinationRequest(BaseModel):
     issue: str | None = None
     timestamp: str | None = Field(None, description="ISO timestamp string; uses current system time if empty")
     scheme_count: int = Field(3, ge=1, le=50, description="How many schemes to return")
-    strategy_mode: Literal["multi_cover", "single_hit"] = "multi_cover"
+    strategy_mode: Literal["multi_cover", "single_hit", "smart_balance"] = "smart_balance"
     ai_config: AIConfigRequest | None = None
 
 
@@ -157,7 +157,7 @@ class DivinationResponse(BaseModel):
     seed_value: str
     divination_datetime: str
     target_draw_datetime: str
-    strategy_mode: Literal["multi_cover", "single_hit"] = "multi_cover"
+    strategy_mode: Literal["multi_cover", "single_hit", "smart_balance"] = "smart_balance"
     moving_line: int
     main_hexagram: HexagramInfo
     mutual_hexagram: HexagramInfo
@@ -190,6 +190,46 @@ class DivinationResponse(BaseModel):
     deep_search_triggered: bool = False
     deep_search_reason: str | None = None
     decision_reason: str | None = None
+
+
+class FullHistoryCacheRebuildJob(BaseModel):
+    job_id: str
+    status: Literal["queued", "running", "completed", "failed"]
+    progress: float = 0.0
+    message: str | None = None
+    scheme_count: int
+    ticket_mode: Literal["basic", "additional"] = "basic"
+    created_at: datetime
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    error: str | None = None
+
+
+class FullHistoryCacheProfileStatus(BaseModel):
+    profile: str
+    mode: Literal["multi_cover", "single_hit", "smart_balance"] | str
+    file_name: str | None = None
+    exists: bool = False
+    valid: bool = False
+    issue_count: int = 0
+    latest_issue: str | None = None
+    generated_at: str | None = None
+    reason: str | None = None
+
+
+class FullHistoryCacheStatus(BaseModel):
+    algorithm_version: str
+    latest_issue: str | None = None
+    total_draws: int = 0
+    expected_issue_count: int = 0
+    scheme_count: int
+    ticket_mode: Literal["basic", "additional"] = "basic"
+    valid: bool = False
+    stale_reasons: list[str] = []
+    generated_at: str | None = None
+    invalidated_at: str | None = None
+    profiles: list[FullHistoryCacheProfileStatus] = []
+    active_job: FullHistoryCacheRebuildJob | None = None
 
 
 class SyncResult(BaseModel):

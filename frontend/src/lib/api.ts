@@ -1,7 +1,20 @@
-import type { AIConfig, AIModelItem, AIReplayMode, BacktestJobListResponse, BacktestJobResponse, BacktestResponse, BacktestStrategyMode, DivinationResponse, FinalScheme, LottoDraw, ManualDrawResult, SavedScheme, SavedSchemeListResponse, StrategyMode, SyncStatus } from "./types";
+import type { AIConfig, AIModelItem, AIReplayMode, BacktestJobListResponse, BacktestJobResponse, BacktestResponse, BacktestStrategyMode, DivinationResponse, FinalScheme, FullHistoryCacheRebuildJob, FullHistoryCacheStatus, LottoDraw, ManualDrawResult, SavedScheme, SavedSchemeListResponse, StrategyMode, SyncStatus, TicketMode } from "./types";
 import { normalizeDeep } from "./text";
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "/api";
+
+export class ApiError extends Error {
+  status: number;
+  detail: unknown;
+
+  constructor(message: string, status: number, detail: unknown) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.detail = detail;
+    Object.setPrototypeOf(this, ApiError.prototype);
+  }
+}
 
 function formatRequestTimestamp(value: Date) {
   const year = value.getFullYear();
@@ -44,14 +57,17 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, init);
   if (!response.ok) {
     let detail = "";
+    let detailPayload: unknown = null;
     try {
       const payload = (await response.json()) as { detail?: unknown; message?: unknown };
       const rawDetail = payload.detail ?? payload.message;
+      detailPayload = rawDetail ?? payload;
       detail = typeof rawDetail === "string" ? rawDetail : rawDetail ? JSON.stringify(rawDetail) : "";
     } catch {
       detail = await response.text().catch(() => "");
+      detailPayload = detail;
     }
-    throw new Error(detail || `Request failed: ${response.status}`);
+    throw new ApiError(detail || `Request failed: ${response.status}`, response.status, normalizeDeep(detailPayload));
   }
   if (response.status === 204) {
     return undefined as T;
@@ -72,7 +88,28 @@ export function runSync(fullRefresh = false) {
   return request("/sync/run?full_refresh=" + String(fullRefresh), { method: "POST" });
 }
 
-export function startDivination(issue?: string, schemeCount = 3, strategyMode: StrategyMode = "multi_cover", aiConfig?: AIConfig) {
+export function fetchFullHistoryCacheStatus(schemeCount = 3, ticketMode: TicketMode = "basic") {
+  const params = new URLSearchParams({
+    scheme_count: String(schemeCount),
+    ticket_mode: ticketMode,
+  });
+  return request<FullHistoryCacheStatus>(`/full-history-cache/status?${params.toString()}`);
+}
+
+export function rebuildFullHistoryCache(schemeCount = 3, ticketMode: TicketMode = "basic", force = true) {
+  const params = new URLSearchParams({
+    scheme_count: String(schemeCount),
+    ticket_mode: ticketMode,
+    force: String(force),
+  });
+  return request<FullHistoryCacheRebuildJob>(`/full-history-cache/rebuild?${params.toString()}`, { method: "POST" });
+}
+
+export function fetchFullHistoryCacheJob(jobId: string) {
+  return request<FullHistoryCacheRebuildJob>(`/full-history-cache/jobs/${jobId}`);
+}
+
+export function startDivination(issue?: string, schemeCount = 3, strategyMode: StrategyMode = "smart_balance", aiConfig?: AIConfig) {
   const aiConfigPayload = buildAIConfigPayload(aiConfig);
   return request<DivinationResponse>("/divination", {
     method: "POST",
