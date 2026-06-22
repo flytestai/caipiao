@@ -1,22 +1,43 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 
 from app.models import SyncResult
-from app.services.official_source import fetch_history_page
+from app.services.official_source import fetch_history_page, fetch_history_pages
 from app.services.repository import get_sync_status, set_meta, upsert_draws
+
+FULL_HISTORY_CACHE_QUEUE_MAX_WORKERS = 4
 
 
 def _queue_incremental_full_history_cache_updates() -> None:
-    # 常用推演组数优先自动补最新增量，避免每次刷新页面都要求手动更新缓存。
     from app.services.backtest_service import create_full_history_cache_rebuild_job
 
-    for scheme_count in (3, 5, 8, 10):
-        try:
-            create_full_history_cache_rebuild_job(scheme_count=scheme_count, ticket_mode="basic", force=True)
-        except Exception:
-            # 缓存补齐是增强体验的后台任务，不应阻断开奖同步主流程。
-            pass
+    scheme_counts = (3, 5, 8, 10)
+    max_workers = min(FULL_HISTORY_CACHE_QUEUE_MAX_WORKERS, len(scheme_counts))
+    if max_workers <= 1:
+        for scheme_count in scheme_counts:
+            try:
+                create_full_history_cache_rebuild_job(scheme_count=scheme_count, ticket_mode="basic", force=True)
+            except Exception:
+                pass
+        return
+
+    with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="cache-queue") as executor:
+        futures = [
+            executor.submit(
+                create_full_history_cache_rebuild_job,
+                scheme_count=scheme_count,
+                ticket_mode="basic",
+                force=True,
+            )
+            for scheme_count in scheme_counts
+        ]
+        for future in as_completed(futures):
+            try:
+                future.result()
+            except Exception:
+                pass
 
 
 def sync_official_history(*, full_refresh: bool = False) -> SyncResult:
@@ -25,14 +46,12 @@ def sync_official_history(*, full_refresh: bool = False) -> SyncResult:
     fetched_pages = 1
 
     if full_refresh:
-        for page_no in range(2, pages + 1):
-            page_draws, _ = fetch_history_page(page_no=page_no)
-            all_draws.extend(page_draws)
+        extra_pages = list(range(2, pages + 1))
+        all_draws.extend(fetch_history_pages(extra_pages))
         fetched_pages = pages
     else:
-        for page_no in range(2, min(pages, 3) + 1):
-            page_draws, _ = fetch_history_page(page_no=page_no)
-            all_draws.extend(page_draws)
+        extra_pages = list(range(2, min(pages, 3) + 1))
+        all_draws.extend(fetch_history_pages(extra_pages))
         fetched_pages = min(pages, 3)
 
     inserted, updated = upsert_draws(all_draws)

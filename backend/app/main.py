@@ -30,7 +30,7 @@ def _scheduled_recent_sync() -> None:
 async def lifespan(_: FastAPI):
     ensure_database()
     try:
-        result = sync_official_history(full_refresh=True)
+        result = sync_official_history(full_refresh=False)
         logger.info("Initial full sync complete: %s", result.model_dump())
     except Exception:
         logger.exception("Initial sync failed")

@@ -296,6 +296,71 @@ export interface SavedSchemeListResponse {
   stats: SavedSchemeStats;
 }
 
+export interface DivinationRunScheme {
+  id: number;
+  run_id: number;
+  scheme_index: number;
+  label: string;
+  confidence: number;
+  strategy: string;
+  front_numbers: number[];
+  back_numbers: number[];
+  rationale: string;
+  evaluation: PrizeEvaluation;
+}
+
+export interface DivinationRun {
+  id: number;
+  target_issue?: string | null;
+  seed_mode: "issue" | "timestamp" | "system_time";
+  seed_value: string;
+  divination_datetime: string;
+  target_draw_datetime: string;
+  requested_scheme_count: number;
+  visible_scheme_count: number;
+  requested_strategy_mode: StrategyMode;
+  effective_strategy_mode: StrategyMode;
+  moving_line: number;
+  ai_engine: string;
+  ai_enabled: boolean;
+  tuning_profile?: string | null;
+  issue_confidence?: number | null;
+  calibrated_confidence?: number | null;
+  applied_threshold?: number | null;
+  should_observe?: boolean;
+  front_confidence?: number | null;
+  front_calibrated_confidence?: number | null;
+  front_gate?: number | null;
+  back_confidence?: number | null;
+  back_calibrated_confidence?: number | null;
+  back_gate?: number | null;
+  count_policy?: string | null;
+  decision_tier?: string | null;
+  deep_search_triggered?: boolean;
+  deep_search_reason?: string | null;
+  decision_reason?: string | null;
+  summary_explanation?: string | null;
+  created_at: string;
+  schemes: DivinationRunScheme[];
+}
+
+export interface DivinationRunStats {
+  total_runs: number;
+  evaluated_runs: number;
+  pending_runs: number;
+  hit_issue_count: number;
+  total_scheme_count: number;
+  evaluated_scheme_count: number;
+  won_scheme_count: number;
+  scheme_win_rate: number;
+  issue_hit_rate: number;
+}
+
+export interface DivinationRunListResponse {
+  items: DivinationRun[];
+  stats: DivinationRunStats;
+}
+
 export interface BacktestIssueResult {
   issue: string;
   draw_date: string;

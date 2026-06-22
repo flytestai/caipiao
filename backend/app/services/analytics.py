@@ -5,39 +5,43 @@ from collections import Counter
 from app.models import AnalyticsResponse, FrequencyItem, LottoDraw, OddEvenStats, OmissionItem
 
 
-def _frequency(draws: list[LottoDraw], *, zone: str) -> list[FrequencyItem]:
-    pool = range(1, 36) if zone == "front" else range(1, 13)
-    counter = Counter()
-    for draw in draws:
-        counter.update(draw.front_numbers if zone == "front" else draw.back_numbers)
-    return [FrequencyItem(number=n, count=counter[n]) for n in pool]
-
-
-def _omission(draws: list[LottoDraw], *, zone: str) -> list[OmissionItem]:
-    pool = range(1, 36) if zone == "front" else range(1, 13)
-    omissions: list[OmissionItem] = []
-    for n in pool:
-        miss = 0
-        # `draws` are consumed newest-first across the app, so omission must count
-        # consecutive misses from the latest draw backward.
-        for draw in draws:
-            values = draw.front_numbers if zone == "front" else draw.back_numbers
-            if n in values:
-                break
-            miss += 1
-        omissions.append(OmissionItem(number=n, omission=miss))
-    return omissions
-
-
-def _odd_even(draws: list[LottoDraw]) -> OddEvenStats:
+def _build_zone_analytics(draws: list[LottoDraw]) -> tuple[list[FrequencyItem], list[FrequencyItem], list[OmissionItem], list[OmissionItem], OddEvenStats]:
+    front_counter: Counter[int] = Counter()
+    back_counter: Counter[int] = Counter()
+    front_first_seen = {number: None for number in range(1, 36)}
+    back_first_seen = {number: None for number in range(1, 13)}
     front_odd = front_even = back_odd = back_even = 0
-    for draw in draws:
-        front_odd += sum(1 for n in draw.front_numbers if n % 2 == 1)
-        front_even += sum(1 for n in draw.front_numbers if n % 2 == 0)
-        back_odd += sum(1 for n in draw.back_numbers if n % 2 == 1)
-        back_even += sum(1 for n in draw.back_numbers if n % 2 == 0)
 
-    return OddEvenStats(
+    for draw_index, draw in enumerate(draws):
+        front_counter.update(draw.front_numbers)
+        back_counter.update(draw.back_numbers)
+        for number in draw.front_numbers:
+            if front_first_seen[number] is None:
+                front_first_seen[number] = draw_index
+            if number % 2 == 1:
+                front_odd += 1
+            else:
+                front_even += 1
+        for number in draw.back_numbers:
+            if back_first_seen[number] is None:
+                back_first_seen[number] = draw_index
+            if number % 2 == 1:
+                back_odd += 1
+            else:
+                back_even += 1
+
+    total_draws = len(draws)
+    front_frequency = [FrequencyItem(number=n, count=front_counter[n]) for n in range(1, 36)]
+    back_frequency = [FrequencyItem(number=n, count=back_counter[n]) for n in range(1, 13)]
+    front_omission = [
+        OmissionItem(number=n, omission=front_first_seen[n] if front_first_seen[n] is not None else total_draws)
+        for n in range(1, 36)
+    ]
+    back_omission = [
+        OmissionItem(number=n, omission=back_first_seen[n] if back_first_seen[n] is not None else total_draws)
+        for n in range(1, 13)
+    ]
+    odd_even = OddEvenStats(
         front_odd=front_odd,
         front_even=front_even,
         back_odd=back_odd,
@@ -45,14 +49,16 @@ def _odd_even(draws: list[LottoDraw]) -> OddEvenStats:
         front_ratio=f"{front_odd}:{front_even}",
         back_ratio=f"{back_odd}:{back_even}",
     )
+    return front_frequency, back_frequency, front_omission, back_omission, odd_even
 
 
 def build_analytics(draws: list[LottoDraw]) -> AnalyticsResponse:
+    front_frequency, back_frequency, front_omission, back_omission, odd_even = _build_zone_analytics(draws)
     return AnalyticsResponse(
         total_draws=len(draws),
-        front_frequency=_frequency(draws, zone="front"),
-        back_frequency=_frequency(draws, zone="back"),
-        front_omission=_omission(draws, zone="front"),
-        back_omission=_omission(draws, zone="back"),
-        odd_even=_odd_even(draws),
+        front_frequency=front_frequency,
+        back_frequency=back_frequency,
+        front_omission=front_omission,
+        back_omission=back_omission,
+        odd_even=odd_even,
     )

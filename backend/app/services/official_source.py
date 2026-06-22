@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 import json
 from datetime import datetime
 from urllib.parse import urlencode
-from urllib.request import Request, urlopen
+
+from curl_cffi import requests as curl_requests
 
 from app.models import LottoDraw, PrizeLevelItem
 
@@ -11,18 +13,20 @@ OFFICIAL_HISTORY_URL = "https://webapi.sporttery.cn/gateway/lottery/getHistoryPa
 OFFICIAL_REFERER = "https://m.lottery.gov.cn/zst/dlt/"
 GAME_NO_DLT = 85
 PAGE_SIZE = 100
+OFFICIAL_FETCH_MAX_WORKERS = 6
 
 
 def _request_json(url: str) -> dict:
-    request = Request(
+    response = curl_requests.get(
         url,
         headers={
-            "User-Agent": "Mozilla/5.0",
             "Referer": OFFICIAL_REFERER,
         },
+        impersonate="chrome124",
+        timeout=20,
     )
-    with urlopen(request, timeout=20) as response:
-        return json.loads(response.read().decode("utf-8"))
+    response.raise_for_status()
+    return json.loads(response.text)
 
 
 def _normalize_record(item: dict) -> LottoDraw:
@@ -67,6 +71,22 @@ def fetch_history_page(page_no: int = 1, page_size: int = PAGE_SIZE) -> tuple[li
     value = payload["value"]
     draws = [_normalize_record(item) for item in value["list"]]
     return draws, int(value["pages"])
+
+
+def fetch_history_pages(page_numbers: list[int], page_size: int = PAGE_SIZE) -> list[LottoDraw]:
+    ordered_pages = [int(page_no) for page_no in page_numbers if int(page_no) >= 1]
+    if not ordered_pages:
+        return []
+    max_workers = min(OFFICIAL_FETCH_MAX_WORKERS, len(ordered_pages))
+    if max_workers <= 1:
+        return [draw for page_no in ordered_pages for draw in fetch_history_page(page_no=page_no, page_size=page_size)[0]]
+
+    with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="official-history") as executor:
+        page_results = executor.map(
+            lambda page_no: fetch_history_page(page_no=page_no, page_size=page_size)[0],
+            ordered_pages,
+        )
+        return [draw for page_draws in page_results for draw in page_draws]
 
 
 def fetch_recent_history(limit: int) -> list[LottoDraw]:

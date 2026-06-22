@@ -452,6 +452,71 @@ class SavedSchemeListResponse(BaseModel):
     stats: SavedSchemeStats
 
 
+class DivinationRunScheme(BaseModel):
+    id: int
+    run_id: int
+    scheme_index: int
+    label: str
+    confidence: float
+    strategy: str
+    front_numbers: list[int]
+    back_numbers: list[int]
+    rationale: str
+    evaluation: PrizeEvaluation
+
+
+class DivinationRun(BaseModel):
+    id: int
+    target_issue: str | None = None
+    seed_mode: Literal["issue", "timestamp", "system_time"]
+    seed_value: str
+    divination_datetime: str
+    target_draw_datetime: str
+    requested_scheme_count: int
+    visible_scheme_count: int
+    requested_strategy_mode: Literal["multi_cover", "single_hit", "smart_balance"]
+    effective_strategy_mode: Literal["multi_cover", "single_hit", "smart_balance"]
+    moving_line: int
+    ai_engine: str
+    ai_enabled: bool = False
+    tuning_profile: str | None = None
+    issue_confidence: float | None = None
+    calibrated_confidence: float | None = None
+    applied_threshold: float | None = None
+    should_observe: bool = False
+    front_confidence: float | None = None
+    front_calibrated_confidence: float | None = None
+    front_gate: float | None = None
+    back_confidence: float | None = None
+    back_calibrated_confidence: float | None = None
+    back_gate: float | None = None
+    count_policy: str | None = None
+    decision_tier: str | None = None
+    deep_search_triggered: bool = False
+    deep_search_reason: str | None = None
+    decision_reason: str | None = None
+    summary_explanation: str | None = None
+    created_at: datetime
+    schemes: list[DivinationRunScheme]
+
+
+class DivinationRunStats(BaseModel):
+    total_runs: int
+    evaluated_runs: int
+    pending_runs: int
+    hit_issue_count: int
+    total_scheme_count: int
+    evaluated_scheme_count: int
+    won_scheme_count: int
+    scheme_win_rate: float
+    issue_hit_rate: float
+
+
+class DivinationRunListResponse(BaseModel):
+    items: list[DivinationRun]
+    stats: DivinationRunStats
+
+
 class BacktestRequest(BaseModel):
     recent_issues: int = Field(30, ge=5)
     scheme_count: int = Field(3, ge=1)

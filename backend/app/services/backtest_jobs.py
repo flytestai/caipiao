@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime
 import logging
+import os
 from threading import Lock
 from uuid import uuid4
 
@@ -13,7 +14,8 @@ from app.services.backtest_service import run_backtest
 logger = logging.getLogger(__name__)
 
 _MAX_JOBS = 24
-_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="backtest-job")
+_BACKTEST_JOB_MAX_WORKERS = min(4, max(2, (os.cpu_count() or 4) // 2))
+_executor = ThreadPoolExecutor(max_workers=_BACKTEST_JOB_MAX_WORKERS, thread_name_prefix="backtest-job")
 _lock = Lock()
 
 

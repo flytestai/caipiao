@@ -11,13 +11,14 @@ import {
 } from "lucide-react";
 import { AIConfigPanel } from "../components/AIConfigPanel";
 import { BacktestPanel } from "../components/BacktestPanel";
+import { DivinationReplayPanel } from "../components/DivinationReplayPanel";
 import { DivinationAnimator } from "../components/DivinationAnimator";
 import { HistoryTable } from "../components/HistoryTable";
 import { RecommendationPanel } from "../components/RecommendationPanel";
 import { SavedSchemePanel } from "../components/SavedSchemePanel";
-import { ApiError, cancelBacktestJob, createBacktestJob, deleteManualDrawResult, deleteSavedIssue, deleteSavedScheme, fetchBacktestJob, fetchBacktestJobs, fetchFullHistoryCacheJob, fetchFullHistoryCacheStatus, fetchHistory, fetchSavedSchemes, fetchSyncStatus, isAIConfigReady, rebuildFullHistoryCache, runBacktestNow, runSync, saveGeneratedScheme, saveGeneratedSchemes, saveManualDrawResult, saveManualScheme, startDivination, type ManualDrawResultInput, type ManualScheme } from "../lib/api";
+import { ApiError, cancelBacktestJob, createBacktestJob, deleteManualDrawResult, deleteSavedIssue, deleteSavedScheme, fetchBacktestJob, fetchBacktestJobs, fetchDivinationRuns, fetchFullHistoryCacheJob, fetchFullHistoryCacheStatus, fetchHistory, fetchSavedSchemes, fetchSyncStatus, isAIConfigReady, rebuildFullHistoryCache, runBacktestNow, runSync, saveGeneratedScheme, saveGeneratedSchemes, saveManualDrawResult, saveManualScheme, startDivination, type ManualDrawResultInput, type ManualScheme } from "../lib/api";
 import { normalizeDeep } from "../lib/text";
-import type { AIConfig, AIReplayMode, BacktestJobResponse, BacktestResponse, BacktestStrategyMode, DivinationResponse, FinalScheme, FullHistoryCacheRebuildJob, FullHistoryCacheStatus, LottoDraw, SavedScheme, SavedSchemeStats, StrategyMode, SyncStatus, TicketMode } from "../lib/types";
+import type { AIConfig, AIReplayMode, BacktestJobResponse, BacktestResponse, BacktestStrategyMode, DivinationResponse, DivinationRun, DivinationRunStats, FinalScheme, FullHistoryCacheRebuildJob, FullHistoryCacheStatus, LottoDraw, SavedScheme, SavedSchemeStats, StrategyMode, SyncStatus, TicketMode } from "../lib/types";
 
 const STORAGE_KEY = "dlt-ai-last-result-v5";
 const COUNT_KEY = "dlt-ai-last-count";
@@ -93,6 +94,7 @@ const strategyModes: Array<{ value: StrategyMode; label: string; description: st
 const pageTabs = [
   { key: "oracle", label: "\u63a8\u6f14\u4e2d\u5fc3" },
   { key: "saved", label: "\u4fdd\u5b58\u65b9\u6848" },
+  { key: "replay", label: "\u5b9e\u76d8\u590d\u76d8" },
   { key: "backtest", label: "\u5386\u53f2\u56de\u6d4b" },
   { key: "history", label: "\u5386\u53f2\u6570\u636e" },
 ] as const;
@@ -545,6 +547,8 @@ export function HomePage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [savedSchemes, setSavedSchemes] = useState<SavedScheme[]>([]);
   const [savedStats, setSavedStats] = useState<SavedSchemeStats | null>(null);
+  const [divinationRuns, setDivinationRuns] = useState<DivinationRun[]>([]);
+  const [divinationRunStats, setDivinationRunStats] = useState<DivinationRunStats | null>(null);
   const [savingSchemeLabels, setSavingSchemeLabels] = useState<string[]>([]);
   const [schemePendingSave, setSchemePendingSave] = useState<FinalScheme | null>(null);
   const [deletingSavedIds, setDeletingSavedIds] = useState<number[]>([]);
@@ -586,13 +590,22 @@ export function HomePage() {
     }
     savedSchemesRefreshTimerRef.current = window.setTimeout(() => {
       savedSchemesRefreshTimerRef.current = null;
-      fetchSavedSchemes(100)
-        .then((savedData) => {
-          setSavedSchemes(savedData.items);
-          setSavedStats(savedData.stats);
+      Promise.all([
+        fetchSavedSchemes(100).catch(() => null),
+        fetchDivinationRuns(100).catch(() => null),
+      ])
+        .then(([savedData, replayData]) => {
+          if (savedData) {
+            setSavedSchemes(savedData.items);
+            setSavedStats(savedData.stats);
+          }
+          if (replayData) {
+            setDivinationRuns(replayData.items);
+            setDivinationRunStats(replayData.stats);
+          }
         })
         .catch((error) => {
-          console.error("refresh saved schemes failed", error);
+          console.error("refresh derived records failed", error);
         });
     }, delay);
   }
@@ -621,14 +634,19 @@ export function HomePage() {
       setStatus(statusData);
       const historyData = await fetchHistory(statusData.total_draws || 5000);
       setHistory(historyData);
-      const [savedData, jobsData, cacheStatus] = await Promise.all([
+      const [savedData, replayData, jobsData, cacheStatus] = await Promise.all([
         fetchSavedSchemes(100).catch(() => null),
+        fetchDivinationRuns(100).catch(() => null),
         fetchBacktestJobs(12).catch(() => ({ items: [] })),
         fetchFullHistoryCacheStatus(schemeCount, "basic").catch(() => null),
       ]);
       if (savedData) {
         setSavedSchemes(savedData.items);
         setSavedStats(savedData.stats);
+      }
+      if (replayData) {
+        setDivinationRuns(replayData.items);
+        setDivinationRunStats(replayData.stats);
       }
       if (cacheStatus) {
         setFullHistoryCacheStatus(cacheStatus);
@@ -1676,6 +1694,12 @@ export function HomePage() {
               manualResultSubmittingIssue={manualResultSubmittingIssue}
               nextIssue={status?.next_issue ?? null}
             />
+          </section>
+        ) : null}
+
+        {activeTab === "replay" ? (
+          <section className="mt-8">
+            <DivinationReplayPanel items={divinationRuns} stats={divinationRunStats} />
           </section>
         ) : null}
 

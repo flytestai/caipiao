@@ -1,7 +1,7 @@
-import type { AIConfig, AIModelItem, AIReplayMode, BacktestJobListResponse, BacktestJobResponse, BacktestResponse, BacktestStrategyMode, DivinationResponse, FinalScheme, FullHistoryCacheRebuildJob, FullHistoryCacheStatus, LottoDraw, ManualDrawResult, SavedScheme, SavedSchemeListResponse, StrategyMode, SyncStatus, TicketMode } from "./types";
+import type { AIConfig, AIModelItem, AIReplayMode, BacktestJobListResponse, BacktestJobResponse, BacktestResponse, BacktestStrategyMode, DivinationResponse, DivinationRunListResponse, FinalScheme, FullHistoryCacheRebuildJob, FullHistoryCacheStatus, LottoDraw, ManualDrawResult, SavedScheme, SavedSchemeListResponse, StrategyMode, SyncStatus, TicketMode } from "./types";
 import { normalizeDeep } from "./text";
 
-const API_BASE = import.meta.env.VITE_API_BASE ?? "/api";
+const API_BASE = import.meta.env.VITE_API_BASE ?? (import.meta.env.DEV ? "http://127.0.0.1:8011/api" : "/api");
 
 export class ApiError extends Error {
   status: number;
@@ -53,8 +53,20 @@ function buildAIConfigPayload(aiConfig?: AIConfig) {
   };
 }
 
+async function fetchWithRetry(input: RequestInfo | URL, init?: RequestInit, retries = 1): Promise<Response> {
+  try {
+    return await fetch(input, init);
+  } catch (error) {
+    if (retries <= 0) {
+      throw error;
+    }
+    await new Promise((resolve) => window.setTimeout(resolve, 400));
+    return fetchWithRetry(input, init, retries - 1);
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, init);
+  const response = await fetchWithRetry(`${API_BASE}${path}`, init, 1);
   if (!response.ok) {
     let detail = "";
     let detailPayload: unknown = null;
@@ -141,6 +153,10 @@ export function fetchAIModels(baseUrl: string, apiKey: string) {
 
 export function fetchSavedSchemes(limit = 100) {
   return request<SavedSchemeListResponse>(`/saved-schemes?limit=${limit}`);
+}
+
+export function fetchDivinationRuns(limit = 100) {
+  return request<DivinationRunListResponse>(`/divination-runs?limit=${limit}`);
 }
 
 export function saveGeneratedScheme(input: {

@@ -77,6 +77,7 @@ DEFAULT_COMBO_WEIGHTS = {
     "back_jackpot_slots": 0.0,
     "back_pair_floor_bonus": 0.0,
     "back_pair_coverage_bonus": 0.0,
+    "three_pack_role_mode": 0.0,
 }
 MULTI_COVER_SUPERVISED_WINDOWS = ((12, 0.42), (36, 0.33), (108, 0.25))
 
@@ -2789,6 +2790,254 @@ def _build_multi_cover_front_core_schemes(
     return schemes
 
 
+def _three_pack_role_mode_enabled(
+    strategy_mode: str,
+    scheme_count: int,
+    combo_weights: dict[str, float] | None = None,
+) -> bool:
+    weights = {**DEFAULT_COMBO_WEIGHTS, **(combo_weights or {})}
+    return (
+        strategy_mode == "multi_cover"
+        and scheme_count == 3
+        and weights.get("three_pack_role_mode", 0.0) >= 0.5
+    )
+
+
+def _build_three_pack_role_schemes(
+    front_candidates: list[CandidateBreakdown],
+    back_candidates: list[CandidateBreakdown],
+    *,
+    combo_weights: dict[str, float] | None = None,
+    search_profile: str = "full",
+    history_size: int | None = None,
+    history_desc: list | None = None,
+    front_pair_window_hits: dict[int, dict[tuple[int, int], int]] | None = None,
+    back_pair_window_hits: dict[int, dict[tuple[int, int], int]] | None = None,
+) -> list[FinalScheme]:
+    weights = {**DEFAULT_COMBO_WEIGHTS, **(combo_weights or {})}
+    ticket_candidates = _build_ticket_candidates(
+        front_candidates,
+        back_candidates,
+        strategy_mode="multi_cover",
+        combo_weights=weights,
+        search_profile=search_profile,
+        history_size=history_size,
+        front_pair_window_hits=front_pair_window_hits,
+        back_pair_window_hits=back_pair_window_hits,
+    )
+    if not ticket_candidates:
+        return []
+
+    attack_schemes = _build_reserved_high_tier_schemes(
+        front_candidates,
+        back_candidates,
+        reserved_count=1,
+        combo_weights=weights,
+        search_profile=search_profile,
+        history_size=history_size,
+        front_pair_window_hits=front_pair_window_hits,
+        back_pair_window_hits=back_pair_window_hits,
+    )
+    if not attack_schemes:
+        return []
+
+    attack_scheme = attack_schemes[0].model_copy(
+        update={
+            "label": SCHEME_STYLES[0] if SCHEME_STYLES else "Scheme 1",
+            "strategy": "第 1 组攻击票：集中保留高奖级路径，优先冲击 1-4 等奖。",
+            "rationale": (
+                "这一组单独承担冲高任务，优先沿用高分前区强核与后区高质量对子，"
+                "不主动分摊保底覆盖。"
+            ),
+        }
+    )
+    schemes: list[FinalScheme] = [attack_scheme]
+    used_keys: set[tuple[tuple[int, ...], tuple[int, ...]]] = {
+        (tuple(attack_scheme.front_numbers), tuple(attack_scheme.back_numbers))
+    }
+    attack_front = set(attack_scheme.front_numbers)
+    supervised_windows = _build_multi_cover_supervised_windows(history_desc or [])
+
+    expansion_candidate: TicketCandidate | None = None
+    expansion_score = float("-inf")
+    selection_context = _build_ticket_selection_context(schemes)
+    for candidate in ticket_candidates:
+        key = (candidate.front_numbers, candidate.back_numbers)
+        if key in used_keys:
+            continue
+        if _violates_multi_cover_overlap_guard(candidate, schemes):
+            continue
+        anchor_overlap = len(candidate.front_set.intersection(attack_front))
+        if anchor_overlap <= 2:
+            continue
+        fresh_back = sum(1 for number in candidate.back_numbers if number not in set(attack_scheme.back_numbers)) / 2
+        role_bonus = 0.0
+        if anchor_overlap == 4:
+            role_bonus += 0.22
+        elif anchor_overlap == 3:
+            role_bonus += 0.10
+        elif anchor_overlap == 5:
+            role_bonus -= 0.12
+        score = _ticket_selection_score(
+            candidate,
+            schemes,
+            strategy_mode="multi_cover",
+            combo_weights=weights,
+            selection_context=selection_context,
+        )
+        score += candidate.jackpot_path_score * 0.16
+        score += candidate.back_pair_support * 0.06
+        score += fresh_back * 0.14
+        score += role_bonus
+        if score > expansion_score:
+            expansion_candidate = candidate
+            expansion_score = score
+
+    if expansion_candidate is None:
+        return schemes
+
+    expansion_scheme = _scheme_from_ticket_candidate(
+        expansion_candidate,
+        index=1,
+        front_candidates=front_candidates,
+        back_candidates=back_candidates,
+        strategy=(
+            "第 2 组扩展票：沿攻击票前区主核做 4+1 或 3+2 扩展，"
+            "同时切换后区落点，优先提高至少中一注的命中面。"
+        ),
+        rationale=(
+            "这组承接攻击票的高分主核，但刻意换掉部分前区边缘位与后区对子，"
+            "把冲高路径向相邻高分结构扩开。"
+        ),
+    )
+    schemes.append(expansion_scheme)
+    used_keys.add((expansion_candidate.front_numbers, expansion_candidate.back_numbers))
+
+    floor_candidate: TicketCandidate | None = None
+    floor_score = float("-inf")
+    selection_context = _build_ticket_selection_context(schemes)
+    covered_back = {number for scheme in schemes for number in scheme.back_numbers}
+    for candidate in ticket_candidates:
+        key = (candidate.front_numbers, candidate.back_numbers)
+        if key in used_keys:
+            continue
+        if _violates_multi_cover_overlap_guard(candidate, schemes):
+            continue
+        attack_overlap = len(candidate.front_set.intersection(attack_front))
+        expansion_overlap = len(candidate.front_set.intersection(set(expansion_scheme.front_numbers)))
+        fresh_back = sum(1 for number in candidate.back_numbers if number not in covered_back) / 2
+        back_low_bias = sum(1 for number in candidate.back_numbers if number <= 6) / 2
+        role_bonus = 0.0
+        if 3 <= attack_overlap <= 4:
+            role_bonus += 0.10
+        elif attack_overlap <= 2:
+            role_bonus += 0.03
+        elif attack_overlap == 5:
+            role_bonus -= 0.08
+        if 2 <= expansion_overlap <= 4:
+            role_bonus += 0.05
+        score = _ticket_selection_score(
+            candidate,
+            schemes,
+            strategy_mode="multi_cover",
+            combo_weights=weights,
+            selection_context=selection_context,
+        )
+        if supervised_windows:
+            score += _floor_harvest_bonus(candidate, supervised_windows) * 1.2
+        else:
+            score += candidate.back_pair_support * 0.18 + candidate.back_score * 0.08
+        score += fresh_back * 0.12
+        score += back_low_bias * 0.06
+        score += role_bonus
+        if score > floor_score:
+            floor_candidate = candidate
+            floor_score = score
+
+    if floor_candidate is not None:
+        schemes.append(
+            _scheme_from_ticket_candidate(
+                floor_candidate,
+                index=2,
+                front_candidates=front_candidates,
+                back_candidates=back_candidates,
+                strategy=(
+                    "第 3 组保底票：优先补足后区与低奖落点覆盖，"
+                    "尽量把剩余票数用在五至七等奖的稳定命中上。"
+                ),
+                rationale=(
+                    "这组用历史窗口里的近期命中信号筛后区与低档落点，"
+                    "避免三组都挤在同一条高奖路径上，减少整包落空。"
+                ),
+            )
+        )
+
+    return schemes
+
+
+def _merge_reserved_with_front_core_schemes(
+    reserved_schemes: list[FinalScheme],
+    core_schemes: list[FinalScheme],
+    *,
+    scheme_count: int,
+) -> list[FinalScheme]:
+    protected = list(reserved_schemes[:scheme_count])
+    used_ticket_keys = {(tuple(item.front_numbers), tuple(item.back_numbers)) for item in protected}
+    used_front_keys = {tuple(item.front_numbers) for item in protected}
+    used_back_keys = {tuple(item.back_numbers) for item in protected}
+    covered_front_numbers = {number for item in protected for number in item.front_numbers}
+    covered_back_numbers = {number for item in protected for number in item.back_numbers}
+    remaining = list(core_schemes)
+
+    while len(protected) < scheme_count and remaining:
+        chosen_index: int | None = None
+        chosen_score = float("-inf")
+        for index, scheme in enumerate(remaining):
+            ticket_key = (tuple(scheme.front_numbers), tuple(scheme.back_numbers))
+            if ticket_key in used_ticket_keys:
+                continue
+            front_key = tuple(scheme.front_numbers)
+            back_key = tuple(scheme.back_numbers)
+            front_tuple_bonus = 1.0 if front_key not in used_front_keys else 0.0
+            back_tuple_bonus = 1.0 if back_key not in used_back_keys else 0.0
+            fresh_front_ratio = sum(1 for number in scheme.front_numbers if number not in covered_front_numbers) / max(
+                1,
+                len(scheme.front_numbers),
+            )
+            fresh_back_ratio = sum(1 for number in scheme.back_numbers if number not in covered_back_numbers) / max(
+                1,
+                len(scheme.back_numbers),
+            )
+            selection_score = (
+                front_tuple_bonus * 1.2
+                + back_tuple_bonus * 1.0
+                + fresh_front_ratio * 0.24
+                + fresh_back_ratio * 0.16
+                + float(scheme.confidence) * 0.02
+            )
+            if selection_score > chosen_score:
+                chosen_index = index
+                chosen_score = selection_score
+
+        if chosen_index is None:
+            break
+
+        chosen = remaining.pop(chosen_index)
+        protected.append(chosen)
+        used_ticket_keys.add((tuple(chosen.front_numbers), tuple(chosen.back_numbers)))
+        used_front_keys.add(tuple(chosen.front_numbers))
+        used_back_keys.add(tuple(chosen.back_numbers))
+        covered_front_numbers.update(chosen.front_numbers)
+        covered_back_numbers.update(chosen.back_numbers)
+
+    return [
+        scheme.model_copy(
+            update={"label": SCHEME_STYLES[index] if index < len(SCHEME_STYLES) else f"Scheme {index + 1}"}
+        )
+        for index, scheme in enumerate(protected[:scheme_count])
+    ]
+
+
 def _build_combo_based_schemes(
     front_candidates: list[CandidateBreakdown],
     back_candidates: list[CandidateBreakdown],
@@ -2798,10 +3047,25 @@ def _build_combo_based_schemes(
     combo_weights: dict[str, float] | None = None,
     search_profile: str = "full",
     history_size: int | None = None,
+    history_desc: list | None = None,
     front_pair_window_hits: dict[int, dict[tuple[int, int], int]] | None = None,
     back_pair_window_hits: dict[int, dict[tuple[int, int], int]] | None = None,
 ) -> list[FinalScheme]:
     weights = {**DEFAULT_COMBO_WEIGHTS, **(combo_weights or {})}
+    if _three_pack_role_mode_enabled(strategy_mode, scheme_count, weights):
+        role_schemes = _build_three_pack_role_schemes(
+            front_candidates,
+            back_candidates,
+            combo_weights=weights,
+            search_profile=search_profile,
+            history_size=history_size,
+            history_desc=history_desc,
+            front_pair_window_hits=front_pair_window_hits,
+            back_pair_window_hits=back_pair_window_hits,
+        )
+        if len(role_schemes) >= scheme_count:
+            return role_schemes[:scheme_count]
+
     reserved_high_tier_count = 0
     reserved_high_tier_schemes: list[FinalScheme] = []
     if strategy_mode == "multi_cover":
@@ -2833,22 +3097,11 @@ def _build_combo_based_schemes(
         )
         if len(core_schemes) >= scheme_count:
             if reserved_high_tier_schemes:
-                protected = list(reserved_high_tier_schemes[:reserved_high_tier_count])
-                used_keys = {(tuple(item.front_numbers), tuple(item.back_numbers)) for item in protected}
-                for scheme in core_schemes:
-                    key = (tuple(scheme.front_numbers), tuple(scheme.back_numbers))
-                    if key in used_keys:
-                        continue
-                    protected.append(scheme)
-                    used_keys.add(key)
-                    if len(protected) >= scheme_count:
-                        break
-                return [
-                    scheme.model_copy(
-                        update={"label": SCHEME_STYLES[index] if index < len(SCHEME_STYLES) else f"Scheme {index + 1}"}
-                    )
-                    for index, scheme in enumerate(protected[:scheme_count])
-                ]
+                return _merge_reserved_with_front_core_schemes(
+                    reserved_high_tier_schemes,
+                    core_schemes,
+                    scheme_count=scheme_count,
+                )
             return core_schemes[:scheme_count]
 
     ticket_candidates = _build_ticket_candidates(
@@ -2972,6 +3225,7 @@ def _build_final_schemes(
     combo_weights: dict[str, float] | None = None,
     search_profile: str = "full",
     history_size: int | None = None,
+    history_desc: list | None = None,
     front_pair_window_hits: dict[int, dict[tuple[int, int], int]] | None = None,
     back_pair_window_hits: dict[int, dict[tuple[int, int], int]] | None = None,
 ) -> list[FinalScheme]:
@@ -2984,6 +3238,7 @@ def _build_final_schemes(
         combo_weights=combo_weights,
         search_profile=search_profile,
         history_size=history_size,
+        history_desc=history_desc,
         front_pair_window_hits=front_pair_window_hits,
         back_pair_window_hits=back_pair_window_hits,
     )
@@ -3681,6 +3936,7 @@ def generate_divination(
         combo_weights=combo_weights,
         search_profile=search_profile,
         history_size=context.history_size,
+        history_desc=history,
         front_pair_window_hits=context.front_pair_window_hits,
         back_pair_window_hits=context.back_pair_window_hits,
     )

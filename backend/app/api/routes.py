@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query, Response
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Response
 from app.models import (
     AIModelListRequest,
     AIModelListResponse,
@@ -11,6 +11,7 @@ from app.models import (
     BacktestResponse,
     DivinationRequest,
     DivinationResponse,
+    DivinationRunListResponse,
     FullHistoryCacheRebuildJob,
     FullHistoryCacheStatus,
     LottoDraw,
@@ -42,7 +43,9 @@ from app.services.repository import (
     delete_manual_draw_result,
     get_history,
     get_sync_status,
+    list_divination_runs,
     list_saved_schemes,
+    save_divination_run,
     save_manual_scheme,
     save_scheme,
     save_schemes,
@@ -64,15 +67,24 @@ def analytics(limit: int = Query(5000, ge=10, le=5000)) -> AnalyticsResponse:
 
 
 @router.post("/divination", response_model=DivinationResponse, summary="Mei Hua divination with dynamic scheme count")
-def divination(payload: DivinationRequest) -> DivinationResponse:
+def divination(payload: DivinationRequest, background_tasks: BackgroundTasks) -> DivinationResponse:
     try:
-        return run_divination_with_backtest_logic(
+        result = run_divination_with_backtest_logic(
             issue=payload.issue,
             timestamp=payload.timestamp,
             scheme_count=payload.scheme_count,
             strategy_mode=payload.strategy_mode,
             ai_config=payload.ai_config,
         )
+        background_tasks.add_task(
+            save_divination_run,
+            result,
+            target_issue=payload.issue or get_sync_status().next_issue,
+            requested_scheme_count=payload.scheme_count,
+            requested_strategy_mode=payload.strategy_mode,
+            ai_enabled=bool(payload.ai_config and payload.ai_config.enabled),
+        )
+        return result
     except AIConfigurationError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except AIGenerationError as exc:
@@ -85,6 +97,11 @@ def divination(payload: DivinationRequest) -> DivinationResponse:
                 "cache_status": exc.status.model_dump(mode="json"),
             },
         ) from exc
+
+
+@router.get("/divination-runs", response_model=DivinationRunListResponse, summary="Replay logged divination runs")
+def divination_runs(limit: int = Query(100, ge=1, le=500)) -> DivinationRunListResponse:
+    return list_divination_runs(limit=limit)
 
 
 @router.post("/ai/models", response_model=AIModelListResponse, summary="Fetch available AI models")

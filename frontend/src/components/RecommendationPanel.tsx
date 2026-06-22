@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { AlertTriangle, BrainCircuit, Layers3, LoaderCircle, Lock, Share2, Trophy, Unlock } from "lucide-react";
+import { AlertTriangle, BrainCircuit, Copy, Layers3, LoaderCircle, Lock, Share2, Trophy, Unlock } from "lucide-react";
 import { toPng } from "html-to-image";
 import { displayElementName, displayHexagramName } from "../lib/display";
 import { decodeEscapedUnicode } from "../lib/text";
@@ -71,11 +71,22 @@ async function shareSchemesAsImage(node: HTMLElement): Promise<"copied" | "downl
   return "downloaded";
 }
 
-function copyScheme(scheme: FinalScheme) {
-  const text = `${scheme.front_numbers.map((n) => String(n).padStart(2, "0")).join(" ")} + ${scheme.back_numbers
-    .map((n) => String(n).padStart(2, "0"))
-    .join(" ")}`;
-  void navigator.clipboard.writeText(text);
+function formatSchemeNumbers(scheme: FinalScheme) {
+  const front = scheme.front_numbers.map((n) => String(n).padStart(2, "0")).join(" ");
+  const back = scheme.back_numbers.map((n) => String(n).padStart(2, "0")).join(" ");
+  return `\u524d\u533a\uff1a${front} \u540e\u533a\uff1a${back}`;
+}
+
+async function copyScheme(scheme: FinalScheme) {
+  await navigator.clipboard.writeText(formatSchemeNumbers(scheme));
+}
+
+function formatSchemeList(schemes: FinalScheme[]) {
+  return schemes.map((scheme) => formatSchemeNumbers(scheme)).join("\n");
+}
+
+async function copySchemes(schemes: FinalScheme[]) {
+  await navigator.clipboard.writeText(formatSchemeList(schemes));
 }
 
 function sum(numbers: number[]) {
@@ -572,10 +583,12 @@ export function RecommendationPanel({
 }: RecommendationPanelProps) {
   const [frontMetric, setFrontMetric] = useState<CandidateMetric>("score");
   const [backMetric, setBackMetric] = useState<CandidateMetric>("score");
+  const [copying, setCopying] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [shareToast, setShareToast] = useState<string | null>(null);
   const captureRef = useRef<HTMLDivElement | null>(null);
   const toastTimerRef = useRef<number | null>(null);
+  const generatedSchemes = result?.final_schemes ?? [];
   const featuredScheme = result?.final_schemes[0] ?? null;
   const otherSchemes = result?.final_schemes.slice(1) ?? [];
   const aiStatus = result ? generationStatus(result.ai_analysis.engine) : null;
@@ -592,6 +605,12 @@ export function RecommendationPanel({
     return result.final_schemes;
   }, [lockedSchemes, result]);
 
+  function showShareToast(message: string) {
+    setShareToast(message);
+    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = window.setTimeout(() => setShareToast(null), 2400);
+  }
+
   return (
     <section className="relative rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_8px_32px_rgba(15,23,42,0.05)] sm:p-7">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-5">
@@ -600,7 +619,30 @@ export function RecommendationPanel({
           <h2 className="mt-1.5 text-xl font-semibold tracking-tight text-slate-900">{"\u4e00\u7b49\u5956\u76ee\u6807\u53f7\u7801"}</h2>
         </div>
         {result ? (
-          <div className="relative">
+          <div className="relative flex items-center gap-2">
+            {generatedSchemes.length > 0 ? (
+              <button
+                onClick={async () => {
+                  if (copying) return;
+                  setCopying(true);
+                  setShareToast(null);
+                  try {
+                    await copySchemes(generatedSchemes);
+                    showShareToast(`\u5df2\u590d\u5236 ${generatedSchemes.length} \u7ec4\u53f7\u7801`);
+                  } catch (err) {
+                    console.error("copy failed", err);
+                    showShareToast("\u590d\u5236\u5931\u8d25\uff0c\u8bf7\u91cd\u8bd5");
+                  } finally {
+                    setCopying(false);
+                  }
+                }}
+                disabled={copying}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                <Copy className="h-3.5 w-3.5" />
+                <span>{copying ? "\u590d\u5236\u4e2d..." : "\u590d\u5236"}</span>
+              </button>
+            ) : null}
             <button
               onClick={async () => {
                 if (!captureRef.current || sharing) return;
@@ -608,14 +650,12 @@ export function RecommendationPanel({
                 setShareToast(null);
                 try {
                   const outcome = await shareSchemesAsImage(captureRef.current);
-                  setShareToast(outcome === "copied" ? "\u5df2\u590d\u5236\u5230\u526a\u8d34\u677f\uff0c\u53ef\u76f4\u63a5\u7c98\u8d34" : "\u5df2\u4e0b\u8f7d\u56fe\u7247");
+                  showShareToast(outcome === "copied" ? "\u5df2\u590d\u5236\u5230\u526a\u8d34\u677f\uff0c\u53ef\u76f4\u63a5\u7c98\u8d34" : "\u5df2\u4e0b\u8f7d\u56fe\u7247");
                 } catch (err) {
                   console.error("share failed", err);
-                  setShareToast("\u751f\u6210\u5931\u8d25\uff0c\u8bf7\u91cd\u8bd5");
+                  showShareToast("\u751f\u6210\u5931\u8d25\uff0c\u8bf7\u91cd\u8bd5");
                 } finally {
                   setSharing(false);
-                  if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
-                  toastTimerRef.current = window.setTimeout(() => setShareToast(null), 2400);
                 }
               }}
               disabled={sharing}

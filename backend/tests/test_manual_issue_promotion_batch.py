@@ -14,7 +14,7 @@ class ManualIssuePromotionBatchTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls._original_data_dir = db_module.DATA_DIR
         cls._original_db_path = db_module.DB_PATH
-        cls._tempdir = tempfile.TemporaryDirectory()
+        cls._tempdir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         db_module.DATA_DIR = Path(cls._tempdir.name)
         db_module.DB_PATH = Path(cls._tempdir.name) / "lotto.db"
         ensure_database()
